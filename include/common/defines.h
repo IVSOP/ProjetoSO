@@ -15,4 +15,9 @@ typedef struct procLog {
 	int time; // mudar tipo depois 
 } procLog;
 
+typedef struct {
+	enum msgType type;
+	procLog proc;
+} StartInfo;
+
 #endif

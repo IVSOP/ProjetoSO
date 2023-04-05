@@ -9,15 +9,10 @@
 #include <sys/time.h>
 #define MESSAGE_BUFF 1024
 
-typedef struct Info {
-	enum msgType type;
-	procLog proc;
-} Info;
-
 void ping_init (int fd, pid_t pid, char * name) {
 	struct timeval current_time;
 	gettimeofday(&current_time, NULL);
-	Info new = {
+	StartInfo new = {
 		.type = START,
 		.proc = {
 			.pid = pid,
@@ -27,7 +22,7 @@ void ping_init (int fd, pid_t pid, char * name) {
 	strcpy(new.proc.name, name);
 
 	// char * message = malloc(sizeof(char) * MESSAGE_BUFF);
-	if (write(fd, &new, sizeof(Info)) == -1) {
+	if (write(fd, &new, sizeof(StartInfo)) == -1) {
 		perror("Error on write");
 	}
 }
@@ -38,7 +33,9 @@ void simple_execute(char **args) {
 	if (fork() == 0) {
 		ping_init(fd,getpid(),args[0]);
 		execvp(args[0], args);
+		_exit(0);
 	}
+	wait(NULL);
 	close(fd);
 }
 
