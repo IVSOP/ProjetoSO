@@ -1,10 +1,10 @@
 BIN_DIR := bin
 
-TARGET_EXEC_TRACER := tracer
-TARGET_EXEC_MONITOR := monitor
+TARGET_EXEC_TRACER := $(BIN_DIR)/tracer
+TARGET_EXEC_MONITOR := $(BIN_DIR)/monitor
 
-DEBUG_EXEC_TRACER := tracer-debug
-DEBUG_EXEC_MONITOR := monitor-debug
+DEBUG_EXEC_TRACER := $(BIN_DIR)/tracer-debug
+DEBUG_EXEC_MONITOR := $(BIN_DIR)/monitor-debug
 
 BASE_BUILD_DIR := build
 BUILD_DIR_TRACER := $(BASE_BUILD_DIR)/obj/tracer

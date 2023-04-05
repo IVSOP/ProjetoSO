@@ -31,8 +31,7 @@
 *.out
 *.app
 
-tracer
-monitor
+bin/
 .DS_Store
 __MACOSX
 .vscode

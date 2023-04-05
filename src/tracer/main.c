@@ -8,10 +8,7 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
-typedef struct Info {
-	enum msgType type;
-	procLog proc;
-} info;
+#define MESSAGE_BUFF 1024
 
 // abrir e fechar aqui????
 void message_server(char * message, size_t len) {
@@ -25,11 +22,17 @@ void message_server(char * message, size_t len) {
 	close(fd);
 }
 
-
-
 void simple_execute(char **args) {
 	// sem error checking por agora
+	struct timeval current_time;
+	char * message = malloc(sizeof(char) * MESSAGE_BUFF);
 	if (fork() == 0) {
+		gettimeofday(&current_time, NULL);
+		// printf("seconds : %ld\nmicro seconds : %ld",
+		// current_time.tv_sec, current_time.tv_usec);
+		// milis: current_time.tv_usec / 1000;
+
+
 
 		execvp(args[0], args);
 	}
@@ -37,6 +40,7 @@ void simple_execute(char **args) {
 
 int main (int argc, char **argv) {
 	if (argc < 2) return 1;
+
 
 	// maneira rota de usar flags mas não interessa
 	if (strcmp(argv[1], "execute") == 0) {
