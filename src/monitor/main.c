@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "defines.h"
 
 void daemonize() {
@@ -45,14 +46,18 @@ void daemonize() {
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
 }
+int read_ping_init() {
+    return 0;
+}
 
 int main (int argc, char **argv) {
-	////// making pipe
-
+    // fazer pipe
 	if (mkfifo(PIPE_NAME, 0600) != 0) {
 		perror("Error making pipe");
 	}
 
+    //ler de clientes
+    //int fd = open(PIPE_NAME, O_RDONLY);
 
 	return 0;
 }

@@ -9,15 +9,25 @@ enum msgType {
     END = 1
 };
 
-typedef struct procLog {
+typedef struct procLogInit {
 	pid_t pid;
 	char name[128];
 	int time; // mudar tipo depois 
-} procLog;
+} procLogInit;
 
-typedef struct {
+typedef struct procLogEnd {
+    pid_t pid;
+    int time; // mudar tipo depois 
+} procLogEnd;
+
+typedef struct infoInit {
 	enum msgType type;
-	procLog proc;
-} StartInfo;
+	procLogInit procInit;
+} InfoInit;
+
+typedef struct infoEnd {
+	enum msgType type;
+	procLogEnd procEnd;
+} InfoEnd;
 
 #endif
