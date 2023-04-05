@@ -2,15 +2,12 @@
 
 #define MESSAGE_BUFF 1024
 
-// abrir e fechar aqui????
-void message_server(char * message, size_t len) {
-	int fd = open(PIPE_NAME, O_WRONLY); // tirar daqui depois, ja aberto antes?
-	// fazer write em loop???????????????????
-	if (write(fd, message, len) == -1) {
-		perror("Error on write");
+void message_server(int fd, void * info, int len) {
+	char *buff[MESSAGE_SIZE];
+	memcpy(buff, info, len);
+	if (write(fd, buff, MESSAGE_SIZE) == -1) {
+		perror("Error on write at start");
 	}
-
-	close(fd);
 }
 
 /**
@@ -30,10 +27,7 @@ void ping_init (int fd, pid_t pid, char * name) {
 
 	strcpy(new.procInit.name, name); // mudar para strings de tamanho dinamico no futuro?
 
-	// char * message = malloc(sizeof(char) * MESSAGE_BUFF);
-	if (write(fd, &new, sizeof(InfoInit)) == -1) {
-		perror("Error on write at start");
-	}
+	message_server(fd, &new, sizeof(InfoInit));
 }
 
 /**
@@ -50,10 +44,8 @@ void ping_end (int fd, pid_t pid) {
 			.time = current_time
 		}
 	};
-	
-	if (write(fd, &new, sizeof(InfoEnd)) == -1) {
-		perror("Error on write at end");
-	}
+
+	message_server(fd, &new, sizeof(InfoEnd));
 }
 
 /**
@@ -67,10 +59,10 @@ int simple_execute(char **args) {
 	if (fork() == 0) {
 		ping_init(fd, new_pid, args[0]);
 		execvp(args[0], args);
-		ping_end(fd, new_pid); // WTF???????????????????????????????????????????????
 		// _exit(0);
 	}
 	wait(NULL);
+	ping_end(fd, new_pid); 
 	close(fd);
 	return 0;
 }

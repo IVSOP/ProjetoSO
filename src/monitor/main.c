@@ -1,8 +1,8 @@
 #include "defines.h"
 
-#define INPUT_BUFF 1024
+#define INPUT_BUFF MESSAGE_SIZE * 4
 
-typedef void parse_funcs (char *buff, int *bread);
+typedef void parse_funcs (char *buff);
 
 void daemonize() {
 	pid_t pid, sid;
@@ -21,7 +21,6 @@ void daemonize() {
     }
 
     // Set file mode creation mask to 0
-
 	// ??????????????????????????????
     umask(0);
 
@@ -45,19 +44,25 @@ void daemonize() {
     close(STDERR_FILENO);
 }
 
-void parse_init(char *buff, int *bread) {
-	(*bread) += sizeof(InfoInit);
-	InfoInit *res = malloc(sizeof(InfoInit));
-	memcpy(res, buff, sizeof(InfoInit));
+void parse_init(char *buff) {
+	buff += offsetof(InfoInit, procInit);
+	procLogInit *res = malloc(sizeof(procLogInit));
+	memcpy(res, buff, sizeof(procLogInit));
 	// return res;
-	printf("Info about start: PID:%d name:%s time: %ld sec %ld usec\n", res->procInit.pid, res->procInit.name, res->procInit.time.tv_sec, res->procInit.time.tv_usec);
+	printf("Info about start: PID:%d name:%s time: %ld sec %ld usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
 }
 
-int parse_inputs(char * buff) {
-	int off;
-	parse_funcs *funcs[] = { parse_init };
-	funcs[(int) buff[0]](buff, &off);
-	return off;
+void parse_end(char *buff) {
+	buff += offsetof(InfoEnd, procEnd);
+	procLogEnd *res = malloc(sizeof(procLogEnd));
+	memcpy(res, buff, sizeof(procLogEnd));
+	// return res;
+	printf("Info about end: PID:%d time: %ld sec %ld usec\n", res->pid, res->time.tv_sec, res->time.tv_usec);
+}
+
+void parse_inputs(char * buff) {
+	parse_funcs *funcs[] = { parse_init, parse_end };
+	funcs[(int) buff[0]](buff);
 }
 
 int read_from_client() {
@@ -65,18 +70,12 @@ int read_from_client() {
 	int fd = open(PIPE_NAME, O_RDONLY);
 
 	int bread;
-	int offset = 0;
-	while ((bread = read(fd, buff + offset, INPUT_BUFF)) > 0) {
-		offset = parse_inputs(buff);
+	int offset;
+	while ((bread = read(fd, buff, INPUT_BUFF)) > 0) {
+		for (offset = 0; offset < bread; offset += MESSAGE_SIZE) {
+			parse_inputs(buff + offset);
+		}
 	}
-
-
-/*
-enum msgType {
-    START = 0,
-    END = 1
-};
-*/
 
 	return 0;
 }
@@ -87,10 +86,7 @@ int main (int argc, char **argv) {
 		perror("Error making pipe");
 	}
 
-	read_from_client();
-
-    //ler de clientes
-    //int fd = open(PIPE_NAME, O_RDONLY);
+	while(1) read_from_client();
 
 	return 0;
 }

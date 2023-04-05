@@ -8,10 +8,13 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <stddef.h>
 
 #ifndef DEFINES_H
 #define DEFINES_H
 #define PIPE_NAME "pipes/pipe"
+
+#define MESSAGE_SIZE 256
 
 typedef enum {
     START = 0,
