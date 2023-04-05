@@ -14,30 +14,22 @@ typedef struct Info {
 	procLog proc;
 } Info;
 
-// abrir e fechar aqui????
-void message_server(char * message, size_t len) {
-	int fd = open(PIPE_NAME, O_WRONLY); // tirar daqui depois, ja aberto antes?
-	// fazer write em loop???????????????????
-	if (write(fd, message, len) == -1) {
-		perror("Error on write");
-	}
-
-	close(fd);
-}
-
-void ping_init (int server_d, pid_t pid, char * name) {
-	Info new;
-	new.type = START;
-	new.proc.pid = pid;
-	strcpy(new.proc.name,name);
+void ping_init (int fd, pid_t pid, char * name) {
 	struct timeval current_time;
-	new.proc.time = gettimeofday(&current_time, NULL);
-        // printf("seconds : %ld\nmicro seconds : %ld",
-        // current_time.tv_sec, current_time.tv_usec);
-        // milis: current_time.tv_usec / 1000
+	gettimeofday(&current_time, NULL);
+	Info new = {
+		.type = START,
+		.proc = {
+			.pid = pid,
+			.time = current_time.tv_usec / 1000
+		}
+	};
+	strcpy(new.proc.name, name);
 
 	// char * message = malloc(sizeof(char) * MESSAGE_BUFF);
-	write(server_d,&new,sizeof(Info));
+	if (write(fd, &new, sizeof(Info)) == -1) {
+		perror("Error on write");
+	}
 }
 
 void simple_execute(char **args) {

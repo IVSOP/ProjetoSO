@@ -11,7 +11,7 @@ enum msgType {
 
 typedef struct procLog {
 	pid_t pid;
-	char name[100];
+	char name[128];
 	int time; // mudar tipo depois 
 } procLog;
 
