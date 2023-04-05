@@ -8,6 +8,11 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
+typedef struct Info {
+	enum msgType type;
+	procLog proc;
+} info;
+
 // abrir e fechar aqui????
 void message_server(char * message, size_t len) {
 	int fd = open(PIPE_NAME, O_RDONLY);
@@ -19,6 +24,8 @@ void message_server(char * message, size_t len) {
 
 	close(fd);
 }
+
+
 
 void simple_execute(char **args) {
 	// sem error checking por agora
