@@ -1,14 +1,6 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include "defines.h"
-#include <fcntl.h>
-#include <sys/time.h>
-#define MESSAGE_BUFF 1024
 
+#define MESSAGE_BUFF 1024
 
 // abrir e fechar aqui????
 void message_server(char * message, size_t len) {
@@ -32,9 +24,10 @@ void ping_init (int fd, pid_t pid, char * name) {
 		.type = START,
 		.procInit = {
 			.pid = pid,
-			.time = (current_time.tv_usec / 1000)
+			.time = current_time
 		}
 	};
+
 	strcpy(new.procInit.name, name); // mudar para strings de tamanho dinamico no futuro?
 
 	// char * message = malloc(sizeof(char) * MESSAGE_BUFF);
@@ -54,7 +47,7 @@ void ping_end (int fd, pid_t pid) {
 		.type = END,
 		.procEnd = {
 			.pid = pid,
-			.time = (current_time.tv_usec / 1000)
+			.time = current_time
 		}
 	};
 	
@@ -70,12 +63,12 @@ void ping_end (int fd, pid_t pid) {
 int simple_execute(char **args) {
 	int fd = open(PIPE_NAME, O_WRONLY);
 	// sem error checking por agora
+	pid_t new_pid = getpid();
 	if (fork() == 0) {
-		int new_pid = getpid();
-		ping_init(fd,new_pid,args[0]);
+		ping_init(fd, new_pid, args[0]);
 		execvp(args[0], args);
-		ping_end(fd,new_pid);
-		_exit(0);
+		ping_end(fd, new_pid); // WTF???????????????????????????????????????????????
+		// _exit(0);
 	}
 	wait(NULL);
 	close(fd);

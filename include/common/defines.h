@@ -1,32 +1,41 @@
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+
 #ifndef DEFINES_H
 #define DEFINES_H
 #define PIPE_NAME "pipes/pipe"
 
-enum msgType {
+typedef enum {
     START = 0,
     END = 1
-};
+} msgType;
 
-typedef struct procLogInit {
+typedef struct {
 	pid_t pid;
+	struct timeval time;
 	char name[128];
-	int time; // mudar tipo depois 
 } procLogInit;
 
-typedef struct procLogEnd {
+typedef struct {
     pid_t pid;
-    int time; // mudar tipo depois 
+	struct timeval time;
 } procLogEnd;
 
-typedef struct infoInit {
-	enum msgType type;
+typedef struct {
+	msgType type;
 	procLogInit procInit;
 } InfoInit;
 
-typedef struct infoEnd {
-	enum msgType type;
+typedef struct {
+	msgType type;
 	procLogEnd procEnd;
 } InfoEnd;
 
