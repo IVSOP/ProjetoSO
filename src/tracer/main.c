@@ -1,4 +1,4 @@
-#include "defines.h"
+#include "common.h"
 
 #define MESSAGE_BUFF 1024
 
