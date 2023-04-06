@@ -61,9 +61,6 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
  * parse da mensagem de status de um cliente
  */
 void parse_status(char *buff, GHashTable * live_procs, char * destFolder) {
-	printf("in status"); fflush(stdout);
-	exit(1);
-
 	//extrair mensagem para struct End
 	buff += offsetof(InfoStatus, pid); // para suportar padding na struct
 	
@@ -74,9 +71,9 @@ void parse_status(char *buff, GHashTable * live_procs, char * destFolder) {
 	sprintf(end, "/%d", pipePid);
 	int pipe_d = open(path, O_WRONLY);
 
-	close(pipe_d);
-
 	g_hash_table_foreach (live_procs, printRunningProc, &pipe_d); // mudar depois, forma rafeira de devolver ao cliente o status
+
+	close(pipe_d);
 }
 
 void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
@@ -89,19 +86,18 @@ void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
 	resTime = final_time.tv_sec * 1000 + final_time.tv_usec / 1000;
 
 	char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
-	snprintf(resultStr, MESSAGE_SIZE, "%d %s %ld ms", (int) procLog->pid, procLog->name, resTime);
+	int len = snprintf(resultStr, MESSAGE_SIZE, "%d %s %ld ms\n", (int) procLog->pid, procLog->name, resTime);
 	printf("Output of status: %s\n", resultStr);
-	if (write(*(int *)pipe_d, resultStr, MESSAGE_SIZE) == -1) {
+	if (write(*(int *)pipe_d, resultStr, len) == -1) {
 		perror("Error writing status command");
 	}
 }
-
 
 /**
  * Dispatch table que redireciona cada mensagem do cliente para a respetiva função de parse, segundo o primeiro byte lido da mensagem. 0 -> parse_init, 1 -> parse_end
  */
 void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder) {
-	// printf("received %d\n", *(int *)buff);
+	printf("received %d\n", *(int *)buff);
 	parse_funcs *funcs[] = { parse_init, parse_end, parse_status };
 	funcs[*(int *)buff](buff, live_procs, destFolder);
 }

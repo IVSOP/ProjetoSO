@@ -42,11 +42,15 @@ void send_status_request() {
 		.pid = pid
 	};
 
-	int fd = open(path, O_WRONLY);
+	int fd = open(PIPE_NAME, O_WRONLY);
 
 	if (write(fd, &info, sizeof(InfoStatus)) == -1) {
 		perror("Error sending status request");
 	}
+
+	close(fd);
+
+	fd = open(path, O_RDONLY);
 
 	char buff[MESSAGE_BUFF]; // malloc?????
 
