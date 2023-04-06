@@ -39,5 +39,8 @@ int main (int argc, char **argv) {
 			ret = pipeline_execute(argv + 3);
 		}
 	}
+	if (strcmp(argv[1], "status") == 0) {
+
+	}
 	return ret;
 }

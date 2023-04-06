@@ -2,21 +2,21 @@
 
 #define PATH_SIZE 64
 #define INPUT_BUFF MESSAGE_SIZE * 4
-#define INPUT_BUFF MESSAGE_SIZE * 4
 
 typedef void parse_funcs (char *buff, GHashTable * live_procs, char * destFolder);
 
 /** 
  * parse da mensagem de início de um processo
  */
-void parse_init(char *buff, GHashTable * live_procs, char * destFolder) { // destFolde não é usado
+void parse_init(char *buff, GHashTable * live_procs, char * destFolder) { // destFolder não é usado
 	//extrair mensagem para struct Init
 	buff += offsetof(InfoInit, procInit); // para suportar padding na struct
 	procLogInit *res = malloc(sizeof(procLogInit));
 	memcpy(res, buff, sizeof(procLogInit));
 
+	//printf("Info about start: PID:%d name:%s time: %ld sec %d usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
+	
 	//inserção na estrutura
-	printf("Info about start: PID:%d name:%s time: %ld sec %d usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
 	if (g_hash_table_insert(live_procs, &(res->pid),res) == FALSE) { // se em alguma situação futura se mudar o PID desta struct, a entrada na hashtable quebra!
 		perror("Error inserting proc to structure");
 	};
@@ -41,12 +41,15 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
 	timersub(&final_time,&(proc_log->time),&final_time);
 	log.time = final_time.tv_sec * 1000 + final_time.tv_usec / 1000;
 
-	printf("Elapsed time: %ld ms\n", log.time);
+	//printf("Elapsed time: %ld ms\n", log.time);
 
 	strcpy(log.name,proc_log->name);
 	write_to_process_file(res->pid,destFolder,&log);
 
-	printf("Info about end: PID:%d time: %ld sec %d usec\n", res->pid, res->time.tv_sec, res->time.tv_usec);
+	//printf("Info about end: PID:%d time: %ld sec %d usec\n", res->pid, res->time.tv_sec, res->time.tv_usec);
+
+	//InfoFile * teste = read_from_process_file(res->pid, destFolder);
+	//printf("PID: %d, Info on file: name:%s, time:%ld\n", res->pid, teste->name, teste->time);
 
 	//remover da hashtable a entrada
 	g_hash_table_remove(live_procs, &(res->pid));
@@ -95,12 +98,6 @@ void write_to_process_file (pid_t pid, char * folder, InfoFile * info) {
 	snprintf(end, end - path, "/%d", pid);
 
 	printf("endPath: %s\n", path);
-
-	//criar diretoria se ainda n existe 
-	struct stat st = {0};
-	if (stat(folder,&st) == -1) { // vê info sobre o ficheiro no path
-		mkdir(folder,0700); // criar diretoria com permissões só para mim, ver 700 melhor depois??
-	}
 
 	//escrever para o ficheiro
 	int fd = open(path, O_WRONLY | O_CREAT, 0640); // O_TRUNC é preciso?

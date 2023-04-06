@@ -58,6 +58,9 @@ int main (int argc, char **argv) {
 		perror("Error making pipe");
 	}
 
+    //criar diretoria de destino de processos
+    mkdir(argv[1], 0700); // utilizador com permissões read,write e execute
+
     // Decidimos usar Hash table para gerir processos em execução. 
     // A possiblidade de ter processos com PIDs muito distintos invalidou o uso de um array, porque teria muitos espaços vazios
     // A hashtable usa como key os PIDs porque queries de status usam PID 
