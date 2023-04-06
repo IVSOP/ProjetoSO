@@ -51,7 +51,7 @@ InfoFile * readFromFile(pid_t pid, char *folder) {
 	
 	char path[PATH_SIZE];
 	char *end = stpncpy(path, folder, PATH_SIZE - 1);
-	snprintf(end, end - path, "%d", pid); // itoa()????????
+	snprintf(end, end - path, "/%d", pid); // itoa()????????
 	
 	int fd = open(path, O_RDONLY);
 	
@@ -59,19 +59,22 @@ InfoFile * readFromFile(pid_t pid, char *folder) {
 		perror("Error opening process file");
 	}
 
+	close(fd);
 	return info;
 }
 
 void writeToFile (pid_t pid, char * folder, InfoFile * info) {
 	char path[PATH_SIZE];
 	char *end = stpncpy(path, folder, PATH_SIZE - 1);
-	snprintf(end, end - path, "%d", pid);
+	snprintf(end, end - path, "/%d", pid);
 
 	int fd = open(path, O_WRONLY | O_CREAT, 0640);
 
 	if (write(fd, info, sizeof(InfoFile)) < (int)sizeof(InfoFile)) {
 		perror("Error writing to process file");
 	}
+
+	close(fd);
 }
 
 void parse_init(char *buff) {
