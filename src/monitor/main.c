@@ -2,6 +2,8 @@
 
 #define INPUT_BUFF MESSAGE_SIZE * 4
 
+#define PATH_SIZE 64
+
 typedef void parse_funcs (char *buff);
 
 void daemonize() {
@@ -42,6 +44,34 @@ void daemonize() {
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
+}
+
+InfoFile * readFromFile(pid_t pid, char *folder) {
+	InfoFile *info = malloc(sizeof(InfoFile));
+	
+	char path[PATH_SIZE];
+	char *end = stpncpy(path, folder, PATH_SIZE - 1);
+	snprintf(end, end - path, "%d", pid); // itoa()????????
+	
+	int fd = open(path, O_RDONLY);
+	
+	if (read(fd, info, sizeof(InfoFile)) == -1) {
+		perror("Error opening process file");
+	}
+
+	return info;
+}
+
+void writeToFile (pid_t pid, char * folder, InfoFile * info) {
+	char path[PATH_SIZE];
+	char *end = stpncpy(path, folder, PATH_SIZE - 1);
+	snprintf(end, end - path, "%d", pid);
+
+	int fd = open(path, O_WRONLY | O_CREAT, 0640);
+
+	if (write(fd, info, sizeof(InfoFile)) < (int)sizeof(InfoFile)) {
+		perror("Error writing to process file");
+	}
 }
 
 void parse_init(char *buff) {

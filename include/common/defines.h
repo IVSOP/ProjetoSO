@@ -15,6 +15,7 @@
 #define PIPE_NAME "pipes/pipe"
 
 #define MESSAGE_SIZE 256
+#define NAME_SIZE 128
 
 typedef enum {
     START = 0,
@@ -24,7 +25,7 @@ typedef enum {
 typedef struct {
 	pid_t pid;
 	struct timeval time;
-	char name[128];
+	char name[NAME_SIZE];
 } procLogInit;
 
 typedef struct {
@@ -41,5 +42,11 @@ typedef struct {
 	msgType type;
 	procLogEnd procEnd;
 } InfoEnd;
+
+typedef struct {
+	// pid_t pid;
+	long int time;
+	char name[NAME_SIZE];
+} InfoFile;
 
 #endif
