@@ -11,12 +11,13 @@ void parse_init(char *buff, GHashTable * live_procs, char * destFolder) { // des
 	procLogInit *res = malloc(sizeof(procLogInit));
 	memcpy(res, buff, sizeof(procLogInit));
 
-	//printf("Info about start: PID:%d name:%s time: %ld sec %d usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
+	// printf("Info about start: PID:%d name:%s time: %ld sec %ld usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
 	
 	//inserção na estrutura
 	// printf("Info about start: PID:%d name:%s time: %ld sec %d usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
-	if (g_hash_table_insert(live_procs, &(res->pid),res) == FALSE) { // se em alguma situação futura se mudar o PID desta struct, a entrada na hashtable quebra!
+	if (g_hash_table_insert(live_procs, &(res->pid), res) == FALSE) { // se em alguma situação futura se mudar o PID desta struct, a entrada na hashtable quebra!
 		perror("Error inserting proc to structure");
+		exit(1);
 	};
 	//free(res) // é freed na destruição da estrutura
 }
@@ -60,30 +61,39 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
  * parse da mensagem de status de um cliente
  */
 void parse_status(char *buff, GHashTable * live_procs, char * destFolder) {
+	printf("in status"); fflush(stdout);
+	exit(1);
+
 	//extrair mensagem para struct End
-	buff += offsetof(InfoEnd, procEnd); // para suportar padding na struct
-	pid_t pipePid;
-	memcpy(&pipePid, buff, sizeof(pid_t));
+	buff += offsetof(InfoStatus, pid); // para suportar padding na struct
+	
+	pid_t pipePid = *(int *)buff;
 
 	char path[PATH_SIZE];
-    char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
-    sprintf(end, "/%d", pipePid);
+	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
+	sprintf(end, "/%d", pipePid);
 	int pipe_d = open(path, O_WRONLY);
-	g_hash_table_foreach (live_procs,printRunningProc,&pipe_d); // mudar depois, forma rafeira de devolver ao cliente o status
+
+	close(pipe_d);
+
+	g_hash_table_foreach (live_procs, printRunningProc, &pipe_d); // mudar depois, forma rafeira de devolver ao cliente o status
 }
 
 void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
 	procLogInit * procLog = (procLogInit *) value;
 
 	long int resTime;
-	struct timeval final_time; gettimeofday(&final_time, NULL);
-	timersub(&final_time,&(procLog->time),&final_time);
+	struct timeval final_time;
+	gettimeofday(&final_time, NULL);
+	timersub(&final_time, &(procLog->time), &final_time);
 	resTime = final_time.tv_sec * 1000 + final_time.tv_usec / 1000;
 
 	char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
 	snprintf(resultStr, MESSAGE_SIZE, "%d %s %ld ms", (int) procLog->pid, procLog->name, resTime);
 	printf("Output of status: %s\n", resultStr);
-	write((long int)pipe_d, resultStr, MESSAGE_SIZE);
+	if (write(*(int *)pipe_d, resultStr, MESSAGE_SIZE) == -1) {
+		perror("Error writing status command");
+	}
 }
 
 
@@ -91,11 +101,10 @@ void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
  * Dispatch table que redireciona cada mensagem do cliente para a respetiva função de parse, segundo o primeiro byte lido da mensagem. 0 -> parse_init, 1 -> parse_end
  */
 void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder) {
+	// printf("received %d\n", *(int *)buff);
 	parse_funcs *funcs[] = { parse_init, parse_end, parse_status };
-	funcs[(int) buff[0]](buff, live_procs, destFolder);
+	funcs[*(int *)buff](buff, live_procs, destFolder);
 }
-
-
 
 /**
  * obter a informação de um processo terminando, lendo o seu fichiero

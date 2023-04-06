@@ -33,7 +33,7 @@ void send_status_request() {
 	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
 	sprintf(end, "/%d", pid);
 
-	if (mkfifo(PIPE_FOLDER, 0600) != 0) {
+	if (mkfifo(path, 0600) != 0) {
 		perror("Error making pipe");
 	}
 
@@ -74,9 +74,6 @@ int main (int argc, char **argv) {
 		}
 	} else if (strcmp(argv[1], "status") == 0) {
 		send_status_request();
-	}
-	if (strcmp(argv[1], "status") == 0) {
-
 	}
 	return ret;
 }

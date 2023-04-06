@@ -68,7 +68,7 @@ int main (int argc, char **argv) {
 
     GHashTable * live_procs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, freeProcLog); // free de keys (ints) é NULL
 
-	while(1) read_from_client(live_procs, argv[1]);
+	while (1) read_from_client(live_procs, argv[1]);
 
     g_hash_table_destroy(live_procs);
 
