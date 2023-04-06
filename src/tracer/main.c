@@ -31,7 +31,7 @@ void send_status_request() {
 
 	char path[PATH_SIZE];
 	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
-	snprintf(end, end - path, "/%d", pid);
+	sprintf(end, "/%d", pid);
 
 	if (mkfifo(PIPE_FOLDER, 0600) != 0) {
 		perror("Error making pipe");

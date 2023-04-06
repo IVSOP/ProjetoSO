@@ -49,16 +49,17 @@ typedef struct {
 	procLogEnd procEnd;
 } InfoEnd;
 
-typedef struct {
-	msgType type;
-	pid_t pid;
-	// void *?????????????
-} InfoStatus;
 
 typedef struct {
 	// pid_t pid;
 	long int time;
 	char name[NAME_SIZE];
 } InfoFile;
+
+typedef struct {
+	msgType type;
+	pid_t pid;
+	// void *?????????????
+} InfoStatus;
 
 #endif
