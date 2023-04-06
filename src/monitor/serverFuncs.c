@@ -1,8 +1,5 @@
 #include "serverFuncs.h"
 
-#define PATH_SIZE 64
-#define INPUT_BUFF MESSAGE_SIZE * 4
-
 typedef void parse_funcs (char *buff, GHashTable * live_procs, char * destFolder);
 
 /** 
@@ -17,6 +14,7 @@ void parse_init(char *buff, GHashTable * live_procs, char * destFolder) { // des
 	//printf("Info about start: PID:%d name:%s time: %ld sec %d usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
 	
 	//inserção na estrutura
+	// printf("Info about start: PID:%d name:%s time: %ld sec %d usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
 	if (g_hash_table_insert(live_procs, &(res->pid),res) == FALSE) { // se em alguma situação futura se mudar o PID desta struct, a entrada na hashtable quebra!
 		perror("Error inserting proc to structure");
 	};
@@ -33,18 +31,19 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
 	memcpy(res, buff, sizeof(procLogEnd));
 
 	//pegar no respetivo processo da estrutura
-	procLogInit * proc_log = g_hash_table_lookup(live_procs,&(res->pid));
+	procLogInit * proc_log = g_hash_table_lookup(live_procs, &(res->pid));
 
 	//meter num ficheiro logs do processo
 	InfoFile log;
-	struct timeval final_time; gettimeofday(&final_time, NULL);
-	timersub(&final_time,&(proc_log->time),&final_time);
+	struct timeval final_time;
+	gettimeofday(&final_time, NULL);
+	timersub(&final_time, &(proc_log->time), &final_time);
 	log.time = final_time.tv_sec * 1000 + final_time.tv_usec / 1000;
 
-	//printf("Elapsed time: %ld ms\n", log.time);
+	// printf("Elapsed time: %ld ms\n", log.time);
 
-	strcpy(log.name,proc_log->name);
-	write_to_process_file(res->pid,destFolder,&log);
+	strcpy(log.name, proc_log->name);
+	write_to_process_file(res->pid, destFolder, &log);
 
 	//printf("Info about end: PID:%d time: %ld sec %d usec\n", res->pid, res->time.tv_sec, res->time.tv_usec);
 
@@ -55,7 +54,6 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
 	g_hash_table_remove(live_procs, &(res->pid));
 
 	free(res); // há necessidade de dar malloc sequer?
-	// return res;
 }
 
 /**
@@ -69,17 +67,18 @@ void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder) {
 /**
  * obter a informação de um processo terminando, lendo o seu fichiero
  */
-InfoFile * read_from_process_file(pid_t pid, char *folder) {
+InfoFile * read_from_process_file (pid_t pid, char *folder) {
 	InfoFile *info = malloc(sizeof(InfoFile));
 	
 	char path[PATH_SIZE];
 	char *end = stpncpy(path, folder, PATH_SIZE - 1);
-	snprintf(end, end - path, "/%d", pid); // itoa()???????? // o snprintf acrescenta o número do PID ao path do ficheiro .../PID
+	sprintf(end, "/%d", pid); // itoa()???????? // o snprintf acrescenta o número do PID ao path do ficheiro .../PID
 	
 	int fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		perror("error opening end proc file");
 	}
+
 	if (read(fd, info, sizeof(InfoFile)) == -1) {
 		perror("Error opening process file");
 	}
@@ -95,9 +94,9 @@ void write_to_process_file (pid_t pid, char * folder, InfoFile * info) {
 	//criar path final do ficheiro
 	char path[PATH_SIZE];
 	char *end = stpncpy(path, folder, PATH_SIZE - 1);
-	snprintf(end, end - path, "/%d", pid);
+	sprintf(end, "/%d", pid);
 
-	printf("endPath: %s\n", path);
+	// printf("endPath: %s\n", path);
 
 	//escrever para o ficheiro
 	int fd = open(path, O_WRONLY | O_CREAT, 0640); // O_TRUNC é preciso?
@@ -135,7 +134,7 @@ int read_from_client(GHashTable * live_procs, char * dest_folder) {
 void send_to_client(pid_t pid, void *info, size_t len) {
 	char path[PATH_SIZE];
 	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
-	snprintf(end, end - path, "/%d", pid);
+	sprintf(end, "/%d", pid);
 
 	int fd = open(path, O_RDONLY);
 

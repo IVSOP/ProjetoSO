@@ -26,6 +26,40 @@ int pipeline_execute(char **args) {
 	return 0;
 }
 
+void send_status_request() {
+	pid_t pid = getpid();
+
+	char path[PATH_SIZE];
+	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
+	snprintf(end, end - path, "/%d", pid);
+
+	if (mkfifo(PIPE_FOLDER, 0600) != 0) {
+		perror("Error making pipe");
+	}
+
+	InfoStatus info = {
+		.type = STATUS,
+		.pid = pid
+	};
+
+	int fd = open(path, O_WRONLY);
+
+	if (write(fd, &info, sizeof(InfoStatus)) == -1) {
+		perror("Error sending status request");
+	}
+
+	char buff[MESSAGE_BUFF]; // malloc?????
+
+	ssize_t bread;
+	while ((bread = read(fd, buff, MESSAGE_BUFF)) > 0) {
+		if (write(STDOUT_FILENO, buff, bread) == -1) {
+			perror("Error writing status to stdout");
+		}
+	}
+
+	close(fd);
+}
+
 int main (int argc, char **argv) {
 	int ret = 0;
 	if (argc < 2) return 1;
@@ -38,6 +72,8 @@ int main (int argc, char **argv) {
 		else if (strcmp(argv[2], "-p") == 0) { // execute em pipeline
 			ret = pipeline_execute(argv + 3);
 		}
+	} else if (strcmp(argv[1], "status") == 0) {
+		send_status_request();
 	}
 	if (strcmp(argv[1], "status") == 0) {
 

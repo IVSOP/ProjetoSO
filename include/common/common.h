@@ -16,13 +16,16 @@
 #define PIPE_FOLDER "pipes"
 #define PIPE_NAME "pipes/pipe"
 
+#define MESSAGE_BUFF 1024
+#define INPUT_BUFF MESSAGE_SIZE * 4
 #define MESSAGE_SIZE 256
 #define NAME_SIZE 128
+#define PATH_SIZE 64
 
 typedef enum {
     START = 0,
     END = 1,
-	STATUS = 2,
+	STATUS = 2
 } msgType;
 
 typedef struct {
@@ -45,6 +48,12 @@ typedef struct {
 	msgType type;
 	procLogEnd procEnd;
 } InfoEnd;
+
+typedef struct {
+	msgType type;
+	pid_t pid;
+	// void *?????????????
+} InfoStatus;
 
 typedef struct {
 	// pid_t pid;
