@@ -12,17 +12,15 @@ void message_server(int fd, void * info, int len) {
  * Escrever informação inicial sobre processo, quando é criado por cliente
  * Args: fd do servidor, pid do novo processo, nome do processo
  */
-void ping_init (int fd, pid_t pid, char * name) {
-	struct timeval current_time;
-	gettimeofday(&current_time, NULL);
+void ping_init (int fd, pid_t pid, char * name, struct timeval * time) {
+
 	InfoInit new = {
 		.type = START,
 		.procInit = {
 			.pid = pid,
-			.time = current_time
+			.time = *time
 		}
 	};
-
 	strcpy(new.procInit.name, name); // mudar para strings de tamanho dinamico no futuro?
 
 	message_server(fd, &new, sizeof(InfoInit));
@@ -32,16 +30,15 @@ void ping_init (int fd, pid_t pid, char * name) {
  * Escrever informação final sobre processo, quando é terminado no cliente
  * Args: fd do servidor, pid do processo terminado
  */
-void ping_end (int fd, pid_t pid) {
-	struct timeval current_time;
-	gettimeofday(&current_time, NULL);
+void ping_end (int fd, pid_t pid, long int totalTime) {
+	
 	InfoEnd new = {
 		.type = END,
 		.procEnd = {
 			.pid = pid,
-			.time = current_time
+			.time = totalTime
 		}
 	};
-
 	message_server(fd, &new, sizeof(InfoEnd));
+
 }

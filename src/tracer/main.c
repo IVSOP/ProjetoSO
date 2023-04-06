@@ -8,21 +8,39 @@ int simple_execute(char **args) {
 	int fd = open(PIPE_NAME, O_WRONLY);
 	// sem error checking por agora
 	pid_t new_pid = getpid();
+
+	//tempo inicial
+	struct timeval start_time;
+	gettimeofday(&start_time, NULL);
+
+	//feedback ao user
+	char userFeedback[PATH_SIZE];
+	int strSize = snprintf(userFeedback, PATH_SIZE, "Running PID %d\n", new_pid);
+	write(STDOUT_FILENO, userFeedback, strSize);
+
+	//execução e ping inicial
 	if (fork() == 0) {
-		ping_init(fd, new_pid, args[0]);
+		ping_init(fd, new_pid, args[0], &start_time);
 		execvp(args[0], args);
-		// _exit(0);
+		_exit(0);
 	}
 	wait(NULL);
-	ping_end(fd, new_pid); 
-	close(fd);
-	return 0;
-}
 
-/**
- * Execução de comando em pipeline
- */
-int pipeline_execute(char **args) {
+	//tempo total
+	struct timeval end_time;
+	gettimeofday(&end_time, NULL);
+	timersub(&end_time, &start_time, &end_time);
+	long int totalTime = end_time.tv_sec * 1000 + end_time.tv_usec / 1000;
+
+	//ping final
+	ping_end(fd, new_pid, totalTime); 
+
+	//feedback
+	memset(userFeedback, 0, sizeof(char)*PATH_SIZE);
+	strSize = snprintf(userFeedback, PATH_SIZE, "Ended in %ld ms\n", totalTime);
+	write(STDOUT_FILENO, userFeedback, strSize);
+
+	close(fd);
 	return 0;
 }
 
@@ -63,6 +81,14 @@ void send_status_request() {
 
 	close(fd);
 }
+
+/**
+ * Execução de comando em pipeline
+ */
+int pipeline_execute(char **args) {
+	return 0;
+}
+
 
 int main (int argc, char **argv) {
 	int ret = 0;

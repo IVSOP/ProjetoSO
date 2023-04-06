@@ -36,13 +36,7 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
 
 	//meter num ficheiro logs do processo
 	InfoFile log;
-	struct timeval final_time;
-	gettimeofday(&final_time, NULL);
-	timersub(&final_time, &(proc_log->time), &final_time);
-	log.time = final_time.tv_sec * 1000 + final_time.tv_usec / 1000;
-
-	// printf("Elapsed time: %ld ms\n", log.time);
-
+	log.time = res->time;
 	strcpy(log.name, proc_log->name);
 	write_to_process_file(res->pid, destFolder, &log);
 
@@ -54,7 +48,7 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
 	//remover da hashtable a entrada
 	g_hash_table_remove(live_procs, &(res->pid));
 
-	free(res); // há necessidade de dar malloc sequer?
+	free(res); // há necessidade de dar malloc?
 }
 
 /** 
@@ -87,7 +81,7 @@ void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
 
 	char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
 	int len = snprintf(resultStr, MESSAGE_SIZE, "%d %s %ld ms\n", (int) procLog->pid, procLog->name, resTime);
-	printf("Output of status: %s\n", resultStr);
+	// printf("Output of status: %s\n", resultStr);
 	if (write(*(int *)pipe_d, resultStr, len) == -1) {
 		perror("Error writing status command");
 	}

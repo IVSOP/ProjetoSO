@@ -36,7 +36,7 @@ typedef struct {
 
 typedef struct {
     pid_t pid;
-	struct timeval time;
+	long int time;
 } procLogEnd;
 
 typedef struct {
