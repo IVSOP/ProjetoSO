@@ -1,5 +1,11 @@
-#include "common.h"
-#include "fileFunctions.h"
+#include "serverFuncs.h"
+
+// n é preciso dar free de nada?
+void freeProcLog(void * procLog) {
+	procLogInit *data = procLog;
+    //free(data->name) // string é fixa
+    free(data);
+}
 
 void daemonize() {
 	pid_t pid, sid;
@@ -43,11 +49,25 @@ void daemonize() {
 
 int main (int argc, char **argv) {
     // fazer pipe
+    if (argc != 2) {
+        perror("format should be: ./monitor finish_proc_folder_path");
+        exit(1);
+    }
+
 	if (mkfifo(PIPE_NAME, 0600) != 0) {
 		perror("Error making pipe");
 	}
 
-	while(1) read_from_client();
+    // Decidimos usar Hash table para gerir processos em execução. 
+    // A possiblidade de ter processos com PIDs muito distintos invalidou o uso de um array, porque teria muitos espaços vazios
+    // A hashtable usa como key os PIDs porque queries de status usam PID 
+    // e porque funções de hash para PIDs (ints) são mais simples do que para nomes de procs (strings)
+
+    GHashTable * live_procs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, freeProcLog); // free de keys (ints) é NULL
+
+	while(1) read_from_client(live_procs, argv[1]);
+
+    g_hash_table_destroy(live_procs);
 
 	return 0;
 }

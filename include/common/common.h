@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <stddef.h>
+#include <glib.h>
 
 #ifndef DEFINES_H
 #define DEFINES_H
@@ -24,7 +25,7 @@ typedef enum {
 } msgType;
 
 typedef struct {
-	pid_t pid;
+	pid_t pid; // na hashtable está struct com pid a mais, já está na key da hashtable, fica para já 
 	struct timeval time;
 	char name[NAME_SIZE];
 } procLogInit;

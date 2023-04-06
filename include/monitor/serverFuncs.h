@@ -1,0 +1,12 @@
+#ifndef SERVERFUNCS_H
+#define SERVERFUNCS_H
+
+#include "common.h"
+
+void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder); // mudar estes argumentos todos para uma struct (expansível sem requerer restruturações)? 
+InfoFile * read_from_process_file(pid_t pid, char * destFolder);
+void write_to_process_file (pid_t pid, char * folder, InfoFile * info);
+int read_from_client(GHashTable * live_procs, char * dest_folder);
+void send_to_client(pid_t pid, void *info, size_t len);
+
+#endif
