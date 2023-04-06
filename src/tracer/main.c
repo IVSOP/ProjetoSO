@@ -82,13 +82,56 @@ void send_status_request() {
 	close(fd);
 }
 
-/**
- * Execução de comando em pipeline
- */
-int pipeline_execute(char **args) {
-	return 0;
+void send_stats_time_request(char ** args) {
+	pid_t pid = getpid();
+
+	char path[PATH_SIZE];
+	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
+	sprintf(end, "/%d", pid);
+
+	if (mkfifo(path, 0600) != 0) {
+		perror("Error making pipe");
+	}
+
+	InfoStatusArgs info = {
+		.type = STATS_TIME,
+		.pid = pid
+	};
+	
+	int i; int offset = 0;
+
+	for (i = 0; args[i] != NULL; i++) { // receber argc?????
+		end = stpcpy(info.args + offset, args[i]);
+		end[0] = ';';
+		offset = end - info.args + 1; // + 1 para manter o ';'
+	}
+	end[0] = '\0';
+
+	int fd = open(PIPE_NAME, O_WRONLY);
+
+	if (write(fd, &info, sizeof(InfoStatusArgs)) == -1) {
+		perror("Error sending status request");
+	}
+
+	close(fd);
+
+	fd = open(path, O_RDONLY);
+
+	char buff[MESSAGE_BUFF]; // malloc?????
+
+	ssize_t bread;
+	while ((bread = read(fd, buff, MESSAGE_BUFF)) > 0) {
+		if (write(STDOUT_FILENO, buff, bread) == -1) {
+			perror("Error writing status to stdout");
+		}
+	}
+
+	close(fd);
 }
 
+int pipeline_execute(char ** args) {
+	return 0;
+}
 
 int main (int argc, char **argv) {
 	int ret = 0;
@@ -104,6 +147,8 @@ int main (int argc, char **argv) {
 		}
 	} else if (strcmp(argv[1], "status") == 0) {
 		send_status_request();
+	} else if (strcmp(argv[1], "stats-time") == 0) {
+		send_stats_time_request(argv + 2);
 	}
 	return ret;
 }

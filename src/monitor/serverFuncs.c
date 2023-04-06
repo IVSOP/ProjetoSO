@@ -70,6 +70,44 @@ void parse_status(char *buff, GHashTable * live_procs, char * destFolder) {
 	close(pipe_d);
 }
 
+void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
+	InfoStatusArgs *info = (InfoStatusArgs *)buff;
+	
+	char path[PATH_SIZE], *end;
+
+	long int resTime = 0, temp;
+
+	char *str = info->args, *res;
+
+	int fd;
+	end = stpncpy(path, destFolder, PATH_SIZE - 1);
+	end[0] = '/';
+	while ((res = strsep(&str, ";")) != NULL) {
+		strcpy(end + 1, res);
+
+		fd = open(path, O_RDONLY);
+		// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
+
+		if (read(fd, &temp, sizeof(long int)) == -1) {
+			perror("Error reading process file");
+		}
+
+		resTime += temp;
+		close(fd);
+	}
+
+	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
+	sprintf(end, "/%d", info->pid);
+	int pipe_d = open(path, O_WRONLY);
+
+	int len = snprintf(path, PATH_SIZE, "Total execution time is %ld ms", resTime);
+	if (write(pipe_d, path, len) == -1) {
+		perror("Error sending info back to client");
+	}
+
+	close(pipe_d);
+}
+
 void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
 	procLogInit * procLog = (procLogInit *) value;
 
@@ -92,7 +130,7 @@ void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
  */
 void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder) {
 	printf("received %d\n", *(int *)buff);
-	parse_funcs *funcs[] = { parse_init, parse_end, parse_status };
+	parse_funcs *funcs[] = { parse_init, parse_end, parse_status, parse_stats_time };
 	funcs[*(int *)buff](buff, live_procs, destFolder);
 }
 

@@ -25,7 +25,8 @@
 typedef enum {
     START = 0,
     END = 1,
-	STATUS = 2
+	STATUS = 2,
+	STATS_TIME = 3
 } msgType;
 
 typedef struct {
@@ -49,7 +50,6 @@ typedef struct {
 	procLogEnd procEnd;
 } InfoEnd;
 
-
 typedef struct {
 	// pid_t pid;
 	long int time;
@@ -61,5 +61,11 @@ typedef struct {
 	pid_t pid;
 	// void *?????????????
 } InfoStatus;
+
+typedef struct {
+	msgType type;
+	pid_t pid;
+	char args[NAME_SIZE];
+} InfoStatusArgs;
 
 #endif
