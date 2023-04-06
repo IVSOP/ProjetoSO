@@ -40,5 +40,4 @@ void ping_end (int fd, pid_t pid, long int totalTime) {
 		}
 	};
 	message_server(fd, &new, sizeof(InfoEnd));
-
 }

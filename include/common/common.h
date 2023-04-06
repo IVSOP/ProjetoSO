@@ -26,7 +26,8 @@ typedef enum {
     START = 0,
     END = 1,
 	STATUS = 2,
-	STATS_TIME = 3
+	STATS_TIME = 3,
+	STATS_COMMAND = 4
 } msgType;
 
 typedef struct {

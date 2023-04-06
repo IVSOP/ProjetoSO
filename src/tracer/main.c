@@ -82,7 +82,7 @@ void send_status_request() {
 	close(fd);
 }
 
-void send_stats_time_request(char ** args) {
+void send_stats_request_args(msgType type, char ** args) {
 	pid_t pid = getpid();
 
 	char path[PATH_SIZE];
@@ -94,7 +94,7 @@ void send_stats_time_request(char ** args) {
 	}
 
 	InfoStatusArgs info = {
-		.type = STATS_TIME,
+		.type = type,
 		.pid = pid
 	};
 	
@@ -127,6 +127,7 @@ void send_stats_time_request(char ** args) {
 	}
 
 	close(fd);
+	unlink(path);
 }
 
 int pipeline_execute(char ** args) {
@@ -148,7 +149,9 @@ int main (int argc, char **argv) {
 	} else if (strcmp(argv[1], "status") == 0) {
 		send_status_request();
 	} else if (strcmp(argv[1], "stats-time") == 0) {
-		send_stats_time_request(argv + 2);
+		send_stats_request_args(STATS_TIME, argv + 2);
+	} else if (strcmp(argv[1], "stats-command") == 0) {
+		send_stats_request_args(STATS_COMMAND, argv + 2);
 	}
 	return ret;
 }

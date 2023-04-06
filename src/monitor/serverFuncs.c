@@ -100,7 +100,7 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 	sprintf(end, "/%d", info->pid);
 	int pipe_d = open(path, O_WRONLY);
 
-	int len = snprintf(path, PATH_SIZE, "Total execution time is %ld ms", resTime);
+	int len = snprintf(path, PATH_SIZE, "Total execution time is %ld ms\n", resTime);
 	if (write(pipe_d, path, len) == -1) {
 		perror("Error sending info back to client");
 	}
@@ -108,7 +108,54 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 	close(pipe_d);
 }
 
-void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
+// prog;pid1;pid2;...
+void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder) {
+	InfoStatusArgs *info = (InfoStatusArgs *)buff;
+	
+	char path[PATH_SIZE], *end;
+
+	InfoFile temp;
+
+	int count = 0;
+
+	char *str = info->args, *res;
+
+	int fd;
+	end = stpncpy(path, destFolder, PATH_SIZE - 1);
+	end[0] = '/';
+
+	char *prog = strsep(&str, ";");
+
+	while ((res = strsep(&str, ";")) != NULL) {
+		strcpy(end + 1, res);
+
+		fd = open(path, O_RDONLY);
+		// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
+
+		if (read(fd, &temp, sizeof(InfoFile)) == -1) { // MELHORAR TODO não é preciso ler primeiros bytes do time
+			perror("Error reading process file");
+		}
+
+		if (strcmp(temp.name, prog) == 0) {
+			count ++;
+		}
+
+		close(fd);
+	}
+
+	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
+	sprintf(end, "/%d", info->pid);
+	int pipe_d = open(path, O_WRONLY);
+
+	int len = snprintf(path, PATH_SIZE, "%s was executed %d times\n", prog, count);
+	if (write(pipe_d, path, len) == -1) {
+		perror("Error sending info back to client");
+	}
+
+	close(pipe_d);
+}
+
+void printRunningProc (gpointer key, gpointer value, gpointer pipe_d) {
 	procLogInit * procLog = (procLogInit *) value;
 
 	long int resTime;
@@ -130,7 +177,7 @@ void printRunningProc(gpointer key, gpointer value, gpointer pipe_d) {
  */
 void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder) {
 	printf("received %d\n", *(int *)buff);
-	parse_funcs *funcs[] = { parse_init, parse_end, parse_status, parse_stats_time };
+	parse_funcs *funcs[] = { parse_init, parse_end, parse_status, parse_stats_time, parse_stats_command };
 	funcs[*(int *)buff](buff, live_procs, destFolder);
 }
 
