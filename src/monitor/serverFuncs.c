@@ -70,6 +70,8 @@ void parse_status(char *buff, GHashTable * live_procs, char * destFolder) {
 	close(pipe_d);
 }
 
+// recebe uma InfoStatusArgs no buff
+// a string que esta contém são os PIDs separados por ';'
 void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 	InfoStatusArgs *info = (InfoStatusArgs *)buff;
 	
@@ -108,7 +110,8 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 	close(pipe_d);
 }
 
-// prog;pid1;pid2;...
+// recebe uma InfoStatusArgs no buff
+// a string que esta contém são os PIDs separados por ';'
 void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder) {
 	InfoStatusArgs *info = (InfoStatusArgs *)buff;
 	

@@ -4,41 +4,58 @@
  * Execução de comando individual
  * Args: argumentos recebidos do utilizador
  */
-int simple_execute(char **args) {
+int simple_execute(int argc, char **args) {
 	int fd = open(PIPE_NAME, O_WRONLY);
 	// sem error checking por agora
 	pid_t new_pid = getpid();
 
-	//tempo inicial
+	// tempo inicial
 	struct timeval start_time;
 	gettimeofday(&start_time, NULL);
 
-	//feedback ao user
-	char userFeedback[PATH_SIZE];
-	int strSize = snprintf(userFeedback, PATH_SIZE, "Running PID %d\n", new_pid);
-	write(STDOUT_FILENO, userFeedback, strSize);
+	// feedback ao user
+	char userFeedback[NAME_SIZE];
 
-	//execução e ping inicial
+	// não se pode só usar printf???
+	int strSize = snprintf(userFeedback, NAME_SIZE, "Running PID %d\n", new_pid);
+	if (write(STDOUT_FILENO, userFeedback, strSize) == -1) {
+		perror("Error sending execute info");
+	}
+
+	// concatenar os args com o nome do programa
+	int i, offset = 0;
+	char *end;
+	for (i = 0; i < argc; i++) {
+		end = stpcpy(userFeedback + offset, args[i]);
+		end[0] = ' ';
+		offset = end - userFeedback + 1;
+	}
+	offset--;
+	userFeedback[offset] = '\0';
+	
+	// execução e ping inicial
 	if (fork() == 0) {
-		ping_init(fd, new_pid, args[0], &start_time);
+		ping_init(fd, new_pid, userFeedback, &start_time);
 		execvp(args[0], args);
 		_exit(0);
 	}
 	wait(NULL);
 
-	//tempo total
+	// tempo total
 	struct timeval end_time;
 	gettimeofday(&end_time, NULL);
 	timersub(&end_time, &start_time, &end_time);
 	long int totalTime = end_time.tv_sec * 1000 + end_time.tv_usec / 1000;
 
-	//ping final
+	// ping final
 	ping_end(fd, new_pid, totalTime); 
 
-	//feedback
+	// feedback
 	memset(userFeedback, 0, sizeof(char)*PATH_SIZE);
 	strSize = snprintf(userFeedback, PATH_SIZE, "Ended in %ld ms\n", totalTime);
-	write(STDOUT_FILENO, userFeedback, strSize);
+	if (write(STDOUT_FILENO, userFeedback, strSize) == -1) {
+		perror("Error sending execute info");
+	}
 
 	close(fd);
 	return 0;
@@ -80,6 +97,7 @@ void send_status_request() {
 	}
 
 	close(fd);
+	unlink(path);
 }
 
 void send_stats_request_args(msgType type, char ** args) {
@@ -141,7 +159,7 @@ int main (int argc, char **argv) {
 	// maneira rota de usar flags mas não interessa
 	if (strcmp(argv[1], "execute") == 0) { // execute individual
 		if (strcmp(argv[2], "-u") == 0) {
-			ret = simple_execute(argv + 3);
+			ret = simple_execute(argc - 3, argv + 3);
 		}
 		else if (strcmp(argv[2], "-p") == 0) { // execute em pipeline
 			ret = pipeline_execute(argv + 3);

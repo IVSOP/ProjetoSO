@@ -23,6 +23,8 @@ void ping_init (int fd, pid_t pid, char * name, struct timeval * time) {
 	};
 	strcpy(new.procInit.name, name); // mudar para strings de tamanho dinamico no futuro?
 
+	printf("name being written is %s\n", new.procInit.name);
+
 	message_server(fd, &new, sizeof(InfoInit));
 }
 
