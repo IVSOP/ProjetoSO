@@ -148,9 +148,143 @@ void send_stats_request_args(msgType type, char ** args) {
 	unlink(path);
 }
 
+void pipeCommands(char *** cmd, int size) {
+	if (size == 2) {
+		int p[2];
+		if (pipe(p) == -1) {
+			perror("Error making pipe");
+		}
+
+		if (fork() == 0) {
+			// filho vai ler
+			close(p[1]);
+			dup2(p[0], STDIN_FILENO);
+			close(p[0]);
+
+			execvp(cmd[1][0], cmd[1]);
+			_exit(1); // caso dê erro
+		} else {
+			// pai vai escrever
+			if (fork() == 0) {
+				close(p[0]);
+				dup2(p[1], STDOUT_FILENO);
+				close(p[1]);
+
+				execvp(cmd[0][0], cmd[0]);
+				_exit(1);
+			}
+		}
+
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		close(p[1]);
+		close(p[0]);
+
+
+		while (wait(NULL) != -1);
+
+	} else {
+		int fd_arr[size - 1][2], i;
+		if (pipe(fd_arr[0]) == -1) {
+			perror("Error making pipe");
+			exit(1);
+		}
+
+		if (fork() == 0) {
+			dup2(fd_arr[0][1], STDOUT_FILENO);
+			close(fd_arr[0][1]);
+
+			close(fd_arr[0][0]); // não vai ler do pipe
+
+			execvp(cmd[0][0], cmd[0]);
+			_exit(1);
+		}
+
+
+		for (i = 1; i < size - 1; i++) {
+			close(fd_arr[i - 1][1]);
+			if (pipe(fd_arr[i]) == -1) {
+				perror("Error making pipe");
+				exit(1);
+			}
+			if (fork() == 0) {
+				dup2(fd_arr[i - 1][0], STDIN_FILENO);
+				close(fd_arr[i - 1][0]);
+
+				dup2(fd_arr[i][1], STDOUT_FILENO);
+				close(fd_arr[i][1]);
+
+				execvp(cmd[i][0], cmd[i]);
+				_exit(1);
+			}
+			close(fd_arr[i - 1][0]);
+		}
+
+		close(fd_arr[i - 1][1]); // nunca vai escrever para o pipe
+
+		if (fork() == 0) {
+			dup2(fd_arr[i - 1][0], STDIN_FILENO);
+			close(fd_arr[i - 1][0]);
+
+
+			execvp(cmd[size - 1][0], cmd[size - 1]);
+			_exit(1);
+		}
+		close(fd_arr[i - 1][0]);
+	}
+
+	int status;
+	while (wait(&status) != -1) {
+		if (WEXITSTATUS(status) != EXIT_SUCCESS) {
+			printf("Child exited with %d\n", WEXITSTATUS(status));
+			exit(1);
+		}
+	}
+}
+
 int pipeline_execute(char ** args) {
+	char * str = args[0];
+
+	// char *cmd[PIPELINE_MAX_COMMANDS][PIPELINE_MAX_PER_COMMAND];
+	char ***cmd = malloc(PIPELINE_MAX_COMMANDS * sizeof(char **));
+	int i, j;
+
+	for (i = 0; i < PIPELINE_MAX_COMMANDS; i++) {
+		cmd[i] = malloc(PIPELINE_MAX_PER_COMMAND * sizeof(char *));
+	}
+
+
+	char * res;
+
+	for (i = 0, j = 0; i < PIPELINE_MAX_COMMANDS - 1 && j < PIPELINE_MAX_PER_COMMAND && (res = strsep(&str, " ")) != NULL;) {
+		if (res[0] == '|') {
+			cmd[i][j] = NULL;
+			// printf("cmd[%d][%d] = NULL\n", i, j);
+			j = 0;
+			i++;
+		} else {
+			cmd[i][j] = res;
+			// printf("cmd[%d][%d] = %s (%s)\n", i, j, cmd[i][j], res);
+			j++;
+		}
+	}
+
+	// unsafe, i e j podem ter ultrapassado bounds???
+	cmd[i][j] = NULL;
+	// printf("cmd[%d][%d] = NULL\n---------------------\n", i, j);
+	i++;
+
+	pipeCommands(cmd, i);
+
+	for (i = 0; i < PIPELINE_MAX_COMMANDS; i++) {
+		free(cmd[i]);
+	}
+
+	free(cmd);
+
+
 	return 0;
 }
+
 
 int main (int argc, char **argv) {
 	int ret = 0;

@@ -12,7 +12,7 @@ void parse_init(char *buff, GHashTable * live_procs, char * destFolder) { // des
 	memcpy(res, buff, sizeof(procLogInit));
 
 	// printf("Info about start: PID:%d name:%s time: %ld sec %ld usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
-	
+
 	//inserção na estrutura
 	// printf("Info about start: PID:%d name:%s time: %ld sec %d usec\n", res->pid, res->name, res->time.tv_sec, res->time.tv_usec);
 	if (g_hash_table_insert(live_procs, &(res->pid), res) == FALSE) { // se em alguma situação futura se mudar o PID desta struct, a entrada na hashtable quebra!

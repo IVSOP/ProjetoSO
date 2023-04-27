@@ -16,6 +16,9 @@
 #define PIPE_FOLDER "pipes"
 #define PIPE_NAME "pipes/pipe"
 
+#define PIPELINE_MAX_COMMANDS 16
+#define PIPELINE_MAX_PER_COMMAND 16
+
 #define MESSAGE_BUFF 1024
 #define INPUT_BUFF MESSAGE_SIZE * 4
 #define MESSAGE_SIZE 256
