@@ -13,8 +13,8 @@
 
 #ifndef DEFINES_H
 #define DEFINES_H
-#define PIPE_FOLDER "pipes"
-#define PIPE_NAME "pipes/pipe"
+#define PIPE_FOLDER "pipes" // ficheiro onde named pipes são guardados
+#define PIPE_NAME "pipes/pipe" // pipe principal de clientes para servidor
 
 #define PIPELINE_MAX_COMMANDS 16
 #define PIPELINE_MAX_PER_COMMAND 16
@@ -33,22 +33,26 @@ typedef enum {
 	STATS_COMMAND = 4
 } msgType;
 
+//struct com informação necessária para o servidor sobre inicio de processo
 typedef struct {
 	pid_t pid; // na hashtable está struct com pid a mais, já está na key da hashtable, fica para já 
 	struct timeval time;
 	char name[NAME_SIZE];
 } procLogInit;
 
+//struct com informação necessária para o servidor sobre fim de processo
 typedef struct {
     pid_t pid;
 	long int time;
 } procLogEnd;
 
+// struct com procLogInit mais indicação do tipo de mensagem, para o servidor interpretar o tipo de mensagem
 typedef struct {
 	msgType type;
 	procLogInit procInit;
 } InfoInit;
 
+// struct com procLogEnd mais indicação do tipo de mensagem, para o servidor interpretar o tipo de mensagem
 typedef struct {
 	msgType type;
 	procLogEnd procEnd;

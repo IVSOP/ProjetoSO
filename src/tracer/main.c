@@ -6,23 +6,27 @@
  */
 int simple_execute(int argc, char **args) {
 	int fd = open(PIPE_NAME, O_WRONLY);
-	// sem error checking por agora
-	pid_t new_pid = getpid();
+	if (fd == -1) {
+		perror("Error opening pipe to server");
+		exit(fd);
+	}
 
-	// tempo inicial
-	struct timeval start_time;
-	gettimeofday(&start_time, NULL);
+	pid_t new_pid = getpid();
+	
+
+
+	//split do comando em partes
+	char * splitInput[20]; // max param de um comando é quanto?
+	char * rest = args[0];
+	for (int i=0; (splitInput[i] = strtok_r(rest, " ", &rest)) != NULL; i++);
 
 	// feedback ao user
 	char userFeedback[NAME_SIZE];
 
-	// não se pode só usar printf???
-	int strSize = snprintf(userFeedback, NAME_SIZE, "Running PID %d\n", new_pid);
-	if (write(STDOUT_FILENO, userFeedback, strSize) == -1) {
-		perror("Error sending execute info");
-	}
-
-	// concatenar os args com o nome do programa
+	// ###
+	// concatenar os args com o nome do programa 
+	// só se pede explicitamente o nome do proc, tho
+	// reutiliza a string userFeedback, n está relacionado
 	int i, offset = 0;
 	char *end;
 	for (i = 0; i < argc; i++) {
@@ -32,26 +36,46 @@ int simple_execute(int argc, char **args) {
 	}
 	offset--;
 	userFeedback[offset] = '\0';
+	// ####
+
+	// tempo inicial
+	struct timeval start_time;
+	gettimeofday(&start_time, NULL);
 	
-	// execução e ping inicial
+	//ping inicial ao servidor
+	ping_init(fd, new_pid, userFeedback, &start_time);
+
+	//notificar o utilizador
+	// não se pode só usar printf???
+	int strSize = snprintf(userFeedback, NAME_SIZE, "Running PID %d\n", new_pid);
+	if (write(STDOUT_FILENO, userFeedback, strSize) == -1) {
+		perror("Error sending execute info");
+	}
+
+	// execução
 	if (fork() == 0) {
-		ping_init(fd, new_pid, userFeedback, &start_time);
-		execvp(args[0], args);
+		execvp(splitInput[0], splitInput);
 		_exit(0);
 	}
-	wait(NULL);
 
-	// tempo total
+	//esperar pelo resultado
+	int status;
+	wait(&status);
+	if (!WIFEXITED(status) || WEXITSTATUS(status) < 0) {
+		perror("Error executing proc on client");
+	}
+
+	// tempo final e intervalo total
 	struct timeval end_time;
 	gettimeofday(&end_time, NULL);
 	timersub(&end_time, &start_time, &end_time);
 	long int totalTime = end_time.tv_sec * 1000 + end_time.tv_usec / 1000;
 
-	// ping final
+	// ping final ao servidor
 	ping_end(fd, new_pid, totalTime); 
 
-	// feedback
-	memset(userFeedback, 0, sizeof(char)*PATH_SIZE);
+	// notificar o utilizador
+	memset(userFeedback, 0, sizeof(char) * NAME_SIZE);
 	strSize = snprintf(userFeedback, PATH_SIZE, "Ended in %ld ms\n", totalTime);
 	if (write(STDOUT_FILENO, userFeedback, strSize) == -1) {
 		perror("Error sending execute info");
@@ -62,6 +86,7 @@ int simple_execute(int argc, char **args) {
 }
 
 void send_status_request() {
+
 	pid_t pid = getpid();
 
 	char path[PATH_SIZE];
@@ -77,7 +102,7 @@ void send_status_request() {
 		.pid = pid
 	};
 
-	int fd = open(PIPE_NAME, O_WRONLY);
+	int fd = open(PIPE_NAME, O_WRONLY); // abrir pipe para o servidor
 
 	if (write(fd, &info, sizeof(InfoStatus)) == -1) {
 		perror("Error sending status request");

@@ -1,7 +1,7 @@
 #include "clientFuncs.h"
 
 void message_server(int fd, void * info, int len) {
-	char *buff[MESSAGE_SIZE];
+	char *buff[MESSAGE_SIZE]; // isto n devia ser posto a 0s? Senão passava direto o info para o write n?
 	memcpy(buff, info, len);
 	if (write(fd, buff, MESSAGE_SIZE) == -1) {
 		perror("Error on write at start/end");
