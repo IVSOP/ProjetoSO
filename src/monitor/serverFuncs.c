@@ -33,7 +33,9 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
 
 	//pegar no respetivo processo da estrutura
 	procLogInit * proc_log = g_hash_table_lookup(live_procs, &(res->pid));
-
+	if (proc_log == NULL) {
+		perror("error fetching proc PID");
+	}
 	//meter num ficheiro logs do processo
 	InfoFile log;
 	log.time = res->time;
@@ -185,7 +187,7 @@ void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder) {
 }
 
 /**
- * obter a informação de um processo terminando, lendo o seu fichiero
+ * obter a informação de um processo terminando, lendo o seu ficheiro
  */
 InfoFile * read_from_process_file (pid_t pid, char *folder) {
 	InfoFile *info = malloc(sizeof(InfoFile));
@@ -200,7 +202,7 @@ InfoFile * read_from_process_file (pid_t pid, char *folder) {
 	}
 
 	if (read(fd, info, sizeof(InfoFile)) == -1) {
-		perror("Error opening process file");
+		perror("Error reading from process file");
 	}
 
 	close(fd);

@@ -2,9 +2,9 @@
 
 /**
  * Execução de comando individual
- * Args: argumentos recebidos do utilizador
+ * Args: Comando de input do utilizador
  */
-int simple_execute(int argc, char **args) {
+int simple_execute(char * command) {
 	int fd = open(PIPE_NAME, O_WRONLY);
 	if (fd == -1) {
 		perror("Error opening pipe to server");
@@ -12,13 +12,12 @@ int simple_execute(int argc, char **args) {
 	}
 
 	pid_t new_pid = getpid();
-	
-
 
 	//split do comando em partes
 	char * splitInput[20]; // max param de um comando é quanto?
-	char * rest = args[0];
-	for (int i=0; (splitInput[i] = strtok_r(rest, " ", &rest)) != NULL; i++);
+	char * rest = command;
+	int i;
+	for (i=0; (splitInput[i] = strtok_r(rest, " ", &rest)) != NULL; i++);
 
 	// feedback ao user
 	char userFeedback[NAME_SIZE];
@@ -27,15 +26,15 @@ int simple_execute(int argc, char **args) {
 	// concatenar os args com o nome do programa 
 	// só se pede explicitamente o nome do proc, tho
 	// reutiliza a string userFeedback, n está relacionado
-	int i, offset = 0;
-	char *end;
-	for (i = 0; i < argc; i++) {
-		end = stpcpy(userFeedback + offset, args[i]);
-		end[0] = ' ';
-		offset = end - userFeedback + 1;
-	}
-	offset--;
-	userFeedback[offset] = '\0';
+	// int j, offset = 0;
+	// char *end;
+	// for (j = 0; j < i; i++) {
+	// 	end = stpcpy(userFeedback + offset, args[i]);
+	// 	end[0] = ' ';
+	// 	offset = end - userFeedback + 1;
+	// }
+	// offset--;
+	// userFeedback[offset] = '\0';
 	// ####
 
 	// tempo inicial
@@ -43,7 +42,7 @@ int simple_execute(int argc, char **args) {
 	gettimeofday(&start_time, NULL);
 	
 	//ping inicial ao servidor
-	ping_init(fd, new_pid, userFeedback, &start_time);
+	ping_init(fd, new_pid, splitInput[0], &start_time);
 
 	//notificar o utilizador
 	// não se pode só usar printf???
@@ -85,6 +84,10 @@ int simple_execute(int argc, char **args) {
 	return 0;
 }
 
+/**
+ * simple stats requests, without args 
+ * aka status
+ */
 void send_status_request() {
 
 	pid_t pid = getpid();
@@ -125,6 +128,10 @@ void send_status_request() {
 	unlink(path);
 }
 
+/**
+ * status requests with specific args
+ * aka stats-time, stats-command, stats-uniq
+ */
 void send_stats_request_args(msgType type, char ** args) {
 	pid_t pid = getpid();
 
@@ -173,41 +180,45 @@ void send_stats_request_args(msgType type, char ** args) {
 	unlink(path);
 }
 
+/**
+ * executa uma pipeline de comandos
+ */
 void pipeCommands(char *** cmd, int size) {
-	if (size == 2) {
-		int p[2];
-		if (pipe(p) == -1) {
-			perror("Error making pipe");
-		}
+	// não é preciso?? ao ter size == 2, nao entra no loop intermedio acho e dá direito
+	// if (size == 2) {
+	// 	int p[2];
+	// 	if (pipe(p) == -1) {
+	// 		perror("Error making pipe");
+	// 	}
 
-		if (fork() == 0) {
-			// filho vai ler
-			close(p[1]);
-			dup2(p[0], STDIN_FILENO);
-			close(p[0]);
+	// 	if (fork() == 0) {
+	// 		// filho vai ler
+	// 		close(p[1]);
+	// 		dup2(p[0], STDIN_FILENO);
+	// 		close(p[0]);
 
-			execvp(cmd[1][0], cmd[1]);
-			_exit(1); // caso dê erro
-		} else {
-			// pai vai escrever
-			if (fork() == 0) {
-				close(p[0]);
-				dup2(p[1], STDOUT_FILENO);
-				close(p[1]);
+	// 		execvp(cmd[1][0], cmd[1]);
+	// 		_exit(1); // caso dê erro
+	// 	} else {
+	// 		// pai vai escrever
+	// 		if (fork() == 0) {
+	// 			close(p[0]);
+	// 			dup2(p[1], STDOUT_FILENO);
+	// 			close(p[1]);
 
-				execvp(cmd[0][0], cmd[0]);
-				_exit(1);
-			}
-		}
+	// 			execvp(cmd[0][0], cmd[0]);
+	// 			_exit(1);
+	// 		}
+	// 	}
 
-		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		close(p[1]);
-		close(p[0]);
+	// 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// 	close(p[1]);
+	// 	close(p[0]);
 
 
-		while (wait(NULL) != -1);
+	// 	while (wait(NULL) != -1);
 
-	} else {
+	// } else {
 		int fd_arr[size - 1][2], i;
 		if (pipe(fd_arr[0]) == -1) {
 			perror("Error making pipe");
@@ -255,7 +266,7 @@ void pipeCommands(char *** cmd, int size) {
 			_exit(1);
 		}
 		close(fd_arr[i - 1][0]);
-	}
+	//}
 
 	int status;
 	while (wait(&status) != -1) {
@@ -266,9 +277,13 @@ void pipeCommands(char *** cmd, int size) {
 	}
 }
 
-int pipeline_execute(char ** args) {
-	char * str = args[0];
+/**
+ * processa um comando no formato de pipe
+ * parte o comando em substrings de comandos mais pequenos, executadas em pipeline na função pipeCommands()
+ */
+int pipeline_execute(char * command) {
 
+	//array de comandos, sendo cada comando um array de argumentos
 	// char *cmd[PIPELINE_MAX_COMMANDS][PIPELINE_MAX_PER_COMMAND];
 	char ***cmd = malloc(PIPELINE_MAX_COMMANDS * sizeof(char **));
 	int i, j;
@@ -279,33 +294,86 @@ int pipeline_execute(char ** args) {
 
 
 	char * res;
-
-	for (i = 0, j = 0; i < PIPELINE_MAX_COMMANDS - 1 && j < PIPELINE_MAX_PER_COMMAND && (res = strsep(&str, " ")) != NULL;) {
+	//partição dos comandos em cada array
+	for (i = 0, j = 0; i < PIPELINE_MAX_COMMANDS - 1 && j < PIPELINE_MAX_PER_COMMAND && (res = strsep(&command, " ")) != NULL;) {
 		if (res[0] == '|') {
 			cmd[i][j] = NULL;
-			// printf("cmd[%d][%d] = NULL\n", i, j);
+			//printf("cmd[%d][%d] = NULL\n", i, j);
 			j = 0;
 			i++;
 		} else {
 			cmd[i][j] = res;
-			// printf("cmd[%d][%d] = %s (%s)\n", i, j, cmd[i][j], res);
+			//printf("cmd[%d][%d] = %s (%s)\n", i, j, cmd[i][j], res);
 			j++;
 		}
 	}
 
-	// unsafe, i e j podem ter ultrapassado bounds???
-	cmd[i][j] = NULL;
-	// printf("cmd[%d][%d] = NULL\n---------------------\n", i, j);
+	// unsafe, i e j podem ter ultrapassado bounds??? whati are you oni abouti
+	cmd[i][j] = NULL; // necessário para o último comando
+	//printf("cmd[%d][%d] = NULL\n---------------------\n", i, j);
 	i++;
 
+	// abertura do pipe
+	int fd = open(PIPE_NAME, O_WRONLY);
+	if (fd == -1) {
+		perror("Error opening pipe to server");
+		exit(fd);
+	}
+
+	char pipeName[NAME_SIZE];
+	pipeName[0] = '\0';
+	int offset;
+	for (offset = 0, j = 0; j < i && offset < NAME_SIZE + 3; j++) { // o +3 vem de cortar no final a secção " | " com '\0'
+		offset += sprintf(pipeName + offset,"%s | ",cmd[j][0]);
+	}
+	pipeName[offset-3] = '\0';
+	printf("[%s]\n",pipeName);
+
+	//pipeline vai ficar associada a pid do processo do cliente
+	pid_t new_pid = getpid();
+
+	//tempo inicial
+	struct timeval start_time;
+	gettimeofday(&start_time, NULL);
+
+
+	//ping inicial ao servidor
+	ping_init(fd, new_pid, pipeName, &start_time);
+
+	//notificar o utilizador
+	// não se pode só usar printf???
+	char userFeedback[NAME_SIZE];
+	int strSize = snprintf(userFeedback, NAME_SIZE, "Running PID %d\n", new_pid);
+	if (write(STDOUT_FILENO, userFeedback, strSize) == -1) {
+		perror("Error sending execute info");
+	}
+	//execução da pipeline, já faz wait
 	pipeCommands(cmd, i);
 
+	// tempo final e intervalo total
+	struct timeval end_time;
+	gettimeofday(&end_time, NULL);
+	timersub(&end_time, &start_time, &end_time);
+	long int totalTime = end_time.tv_sec * 1000 + end_time.tv_usec / 1000;
+
+	// ping final ao servidor
+	ping_end(fd, new_pid, totalTime); 
+
+	// notificar o utilizador
+	memset(userFeedback, 0, sizeof(char) * NAME_SIZE);
+	strSize = snprintf(userFeedback, PATH_SIZE, "Ended in %ld ms\n", totalTime);
+	if (write(STDOUT_FILENO, userFeedback, strSize) == -1) {
+		perror("Error sending execute info");
+	}
+
+	
+	//isto já não requer free acho? visto que vem da argv[3]
 	for (i = 0; i < PIPELINE_MAX_COMMANDS; i++) {
 		free(cmd[i]);
 	}
 
+	//free do array inicial
 	free(cmd);
-
 
 	return 0;
 }
@@ -318,10 +386,10 @@ int main (int argc, char **argv) {
 	// maneira rota de usar flags mas não interessa
 	if (strcmp(argv[1], "execute") == 0) { // execute individual
 		if (strcmp(argv[2], "-u") == 0) {
-			ret = simple_execute(argc - 3, argv + 3);
+			ret = simple_execute(argv[3]);
 		}
 		else if (strcmp(argv[2], "-p") == 0) { // execute em pipeline
-			ret = pipeline_execute(argv + 3);
+			ret = pipeline_execute(argv[3]);
 		}
 	} else if (strcmp(argv[1], "status") == 0) {
 		send_status_request();

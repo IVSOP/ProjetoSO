@@ -19,7 +19,7 @@
 #define PIPELINE_MAX_COMMANDS 16
 #define PIPELINE_MAX_PER_COMMAND 16
 
-#define MESSAGE_BUFF 1024
+#define MESSAGE_BUFF 1024 // qual é a diferença disto para INPUT_BUFF
 #define INPUT_BUFF MESSAGE_SIZE * 4
 #define MESSAGE_SIZE 256
 #define NAME_SIZE 128
