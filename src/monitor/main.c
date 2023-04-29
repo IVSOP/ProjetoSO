@@ -1,6 +1,5 @@
 #include "serverFuncs.h"
 
-// n é preciso dar free de nada?
 void freeProcLog(void * procLog) {
 	procLogInit *data = procLog;
     //free(data->name) // string é fixa
@@ -58,7 +57,7 @@ int main (int argc, char **argv) {
 		perror("Error making pipe");
 	}
 
-    //criar diretoria de destino de processos
+    //criar diretoria de destino de processos, se ainda não existir
     mkdir(argv[1], 0700); // utilizador com permissões read,write e execute
 
     // Decidimos usar Hash table para gerir processos em execução. 
@@ -70,6 +69,8 @@ int main (int argc, char **argv) {
 
 	while (1) read_from_client(live_procs, argv[1]);
 
+    unlink (PIPE_NAME);
+    
     g_hash_table_destroy(live_procs);
 
 	return 0;

@@ -16,8 +16,13 @@
 #define PIPE_FOLDER "pipes" // ficheiro onde named pipes são guardados
 #define PIPE_NAME "pipes/pipe" // pipe principal de clientes para servidor
 
+//macros for executing pipelines
 #define PIPELINE_MAX_COMMANDS 16
 #define PIPELINE_MAX_PER_COMMAND 16
+
+//macros for exeuting stats commands
+#define MAX_STATS_FETCH_PROCS 16 // nº maximo de pids num stats request = MAX_PIDS_FETCHED BY_PROC * x; n sei esse x, supus que era 16
+#define MAX_PIDS_FETCHED_BY_PROC 16
 
 #define MESSAGE_BUFF 1024 // qual é a diferença disto para INPUT_BUFF
 #define INPUT_BUFF MESSAGE_SIZE * 4

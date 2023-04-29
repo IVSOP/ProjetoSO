@@ -85,7 +85,7 @@ int simple_execute(char * command) {
 }
 
 /**
- * simple stats requests, without args 
+ * simple status requests, without args 
  * aka status
  */
 void send_status_request() {
@@ -106,14 +106,23 @@ void send_status_request() {
 	};
 
 	int fd = open(PIPE_NAME, O_WRONLY); // abrir pipe para o servidor
+	if (fd == -1) {
+		perror("Error opening pipe to write");
+	}
 
 	if (write(fd, &info, sizeof(InfoStatus)) == -1) {
 		perror("Error sending status request");
 	}
 
 	close(fd);
+	if (fd == -1) {
+		perror("Error closing pipe");
+	}
 
 	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		perror("Error openining pipe to read");
+	}
 
 	char buff[MESSAGE_BUFF]; // malloc?????
 
@@ -125,6 +134,11 @@ void send_status_request() {
 	}
 
 	close(fd);
+	if (fd == -1) {
+		perror("Error closing pipe");
+	}
+
+	//apaga
 	unlink(path);
 }
 
@@ -184,6 +198,10 @@ void send_stats_request_args(msgType type, char ** args) {
  * executa uma pipeline de comandos
  */
 void pipeCommands(char *** cmd, int size) {
+	if (size == 1) {
+		perror("Command isn´t pipeline");
+		exit(2);
+	}
 	// não é preciso?? ao ter size == 2, nao entra no loop intermedio acho e dá direito
 	// if (size == 2) {
 	// 	int p[2];
@@ -366,7 +384,7 @@ int pipeline_execute(char * command) {
 		perror("Error sending execute info");
 	}
 
-	
+
 	//isto já não requer free acho? visto que vem da argv[3]
 	for (i = 0; i < PIPELINE_MAX_COMMANDS; i++) {
 		free(cmd[i]);

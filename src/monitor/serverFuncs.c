@@ -69,7 +69,7 @@ void parse_status(char *buff, GHashTable * live_procs, char * destFolder) {
 
 	g_hash_table_foreach (live_procs, printRunningProc, &pipe_d); // mudar depois, forma rafeira de devolver ao cliente o status
 
-	close(pipe_d);
+	close(pipe_d); // fechar o pipe de comunicação do status
 }
 
 // recebe uma InfoStatusArgs no buff
@@ -81,25 +81,78 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 
 	long int resTime = 0, temp;
 
-	char *str = info->args, *res;
+	char *str = info->args, * res;
 
-	int fd;
+	int procLog;
+
+	//parte do path do pipe de resposta de stats, falta só o pid específico no fim do path, que é adicionado nos forks;
 	end = stpncpy(path, destFolder, PATH_SIZE - 1);
 	end[0] = '/';
-	while ((res = strsep(&str, ";")) != NULL) {
-		strcpy(end + 1, res);
 
-		fd = open(path, O_RDONLY);
-		// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
+	char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
 
-		if (read(fd, &temp, sizeof(long int)) == -1) {
-			perror("Error reading process file");
+	strsep(&str, ";"); //remover nome do processo, antes de ver os PIDs
+
+	int numberOfFork = 0,i = 0;
+	while(numberOfFork < MAX_STATS_FETCH_PROCS && (res = strsep(&str, ";")) != NULL) { // n era mais fácil passar do cliente só um array de pids no formato string, sem os ';'?
+		if (i == MAX_PIDS_FETCHED_BY_PROC) {
+			pids[numberOfFork][i] = NULL;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
+			numberOfFork++;
+			pids[numberOfFork][0] = res;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][0],numberOfFork,0); 
+			i = 1;
 		}
+		else {
+			pids[numberOfFork][i] = res;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
+			i++;
+		}
+	}
+	pids[numberOfFork][i] = NULL;
+	printf("------- %s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i);
 
-		resTime += temp;
-		close(fd);
+	int p[2];
+	if (pipe(p) == -1) {
+		perror("Error opening anonymous pipe");
+		exit(1);
 	}
 
+	for (i = 0; i <= numberOfFork; i++) {
+		if (fork() == 0) {
+			close(p[0]); // n vai ler do pipe
+			for(int k=0; pids[i][k] != NULL; k++) {
+				strcpy(end + 1, pids[i][k]);
+				//printf("filho: %d iter: %d path:%s\n", i, k, path);
+				procLog = open(path, O_RDONLY);
+				// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
+
+				if (read(procLog, &temp, sizeof(long int)) == -1) {
+					perror("Error reading process log");
+				}
+				close(procLog);
+				resTime += temp;
+			}
+			if (write(p[1],&resTime,sizeof(long int)) == -1) {
+				perror("Error writing totaltime to pipe");
+			}
+			close(p[1]);
+			//printf("filho: %d totaltime: %ld\n",i,resTime);
+			_exit(-1);
+		}
+	}
+	close(p[1]);
+	while(read(p[0],&temp,sizeof(long int)) > 0) {
+		resTime += temp;
+
+	}
+	close(p[0]);
+	int status;
+	while (wait(&status) != -1)
+		if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
+			perror("Error executing child process");
+
+	//abrir pipe de volta para o cliente com a resposta 
 	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
 	sprintf(end, "/%d", info->pid);
 	int pipe_d = open(path, O_WRONLY);
@@ -119,35 +172,82 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 	
 	char path[PATH_SIZE], *end;
 
-	InfoFile temp;
+	char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
 
-	int count = 0;
+	int count = 0, temp;
 
 	char *str = info->args, *res;
 
-	int fd;
+	int procLog;
+
 	end = stpncpy(path, destFolder, PATH_SIZE - 1);
 	end[0] = '/';
 
-	char *prog = strsep(&str, ";");
+	char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
+	
+	char *prog = strsep(&str, ";"); // nome do programa a procurar
 
-	while ((res = strsep(&str, ";")) != NULL) {
-		strcpy(end + 1, res);
-
-		fd = open(path, O_RDONLY);
-		// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
-
-		if (read(fd, &temp, sizeof(InfoFile)) == -1) { // MELHORAR TODO não é preciso ler primeiros bytes do time
-			perror("Error reading process file");
+	int numberOfFork = 0,i = 0;
+	while(numberOfFork < MAX_STATS_FETCH_PROCS && (res = strsep(&str, ";")) != NULL) { // n era mais fácil passar do cliente só um array de pids no formato string, sem os ';'?
+		if (i == MAX_PIDS_FETCHED_BY_PROC) {
+			pids[numberOfFork][i] = NULL;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
+			numberOfFork++;
+			pids[numberOfFork][0] = res;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][0],numberOfFork,0); 
+			i = 1;
 		}
-
-		if (strcmp(temp.name, prog) == 0) {
-			count ++;
+		else {
+			pids[numberOfFork][i] = res;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
+			i++;
 		}
+	}
+	pids[numberOfFork][i] = NULL;
+	//printf("------- %s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i);
 
-		close(fd);
+	int p[2];
+	if (pipe(p) == -1) {
+		perror("Error opening anonymous pipe");
+		exit(1);
 	}
 
+	for (i = 0; i <= numberOfFork; i++) {
+		if (fork() == 0) {
+			close(p[0]); // n vai ler do pipe
+			for(int k=0; pids[i][k] != NULL; k++) {
+				strcpy(end + 1, pids[i][k]);
+				//printf("filho: %d iter: %d path:%s\n", i, k, path);
+				procLog = open(path, O_RDONLY);
+				// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
+
+				if (pread(procLog, procName, sizeof(char)* NAME_SIZE,offsetof(InfoFile,name)) == -1) { // só lê a string necessária
+					perror("Error reading process file");
+				}
+				if (strcmp(procName, prog) == 0) count ++;
+				close(procLog);
+			}
+			if (write(p[1],&count,sizeof(int)) == -1) {
+				perror("Error writing total count to pipe");
+			}
+			close(p[1]);
+			//printf("filho: %d totaltime: %ld\n",i,resTime);
+			_exit(-1);
+		}
+	}
+
+	close(p[1]);
+	while(read(p[0],&temp,sizeof(long int)) > 0) {
+		count += temp;
+	}
+	close(p[0]);
+
+	int status;
+	while (wait(&status) != -1)
+		if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
+			perror("Error executing child process");
+
+	//abrir pipe de volta para o cliente com a resposta
 	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
 	sprintf(end, "/%d", info->pid);
 	int pipe_d = open(path, O_WRONLY);
