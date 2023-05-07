@@ -81,7 +81,7 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 
 	long int resTime = 0, temp;
 
-	char *str = info->args, * res;
+	char *str = info->args;
 
 	int procLog;
 
@@ -89,28 +89,9 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 	end = stpncpy(path, destFolder, PATH_SIZE - 1);
 	end[0] = '/';
 
-	char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
+	char * pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
 
-	strsep(&str, ";"); //remover nome do processo, antes de ver os PIDs
-
-	int numberOfFork = 0,i = 0;
-	while(numberOfFork < MAX_STATS_FETCH_PROCS && (res = strsep(&str, ";")) != NULL) { // n era mais fácil passar do cliente só um array de pids no formato string, sem os ';'?
-		if (i == MAX_PIDS_FETCHED_BY_PROC) {
-			pids[numberOfFork][i] = NULL;
-			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
-			numberOfFork++;
-			pids[numberOfFork][0] = res;
-			//printf("%s [%d][%d]\n",pids[numberOfFork][0],numberOfFork,0); 
-			i = 1;
-		}
-		else {
-			pids[numberOfFork][i] = res;
-			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
-			i++;
-		}
-	}
-	pids[numberOfFork][i] = NULL;
-	printf("------- %s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i);
+	int numberOfFork = splitPIDs(str,pids); // split dos PIDs de input
 
 	int p[2];
 	if (pipe(p) == -1) {
@@ -118,12 +99,13 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 		exit(1);
 	}
 
+	int i;
 	for (i = 0; i <= numberOfFork; i++) {
 		if (fork() == 0) {
 			close(p[0]); // n vai ler do pipe
 			for(int k=0; pids[i][k] != NULL; k++) {
 				strcpy(end + 1, pids[i][k]);
-				//printf("filho: %d iter: %d path:%s\n", i, k, path);
+				printf("filho: %d iter: %d path:%s\n", i, k, path);
 				procLog = open(path, O_RDONLY);
 				// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
 
@@ -137,14 +119,13 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 				perror("Error writing totaltime to pipe");
 			}
 			close(p[1]);
-			//printf("filho: %d totaltime: %ld\n",i,resTime);
+			printf("filho: %d totaltime: %ld\n",i,resTime);
 			_exit(-1);
 		}
 	}
 	close(p[1]);
 	while(read(p[0],&temp,sizeof(long int)) > 0) {
 		resTime += temp;
-
 	}
 	close(p[0]);
 	int status;
@@ -165,8 +146,7 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 	close(pipe_d);
 }
 
-// recebe uma InfoStatusArgs no buff
-// a string que esta contém são os PIDs separados por ';'
+// recebe uma InfoStatusArgs no buff - contém string de PIDs separados por ';'
 void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder) {
 	InfoStatusArgs *info = (InfoStatusArgs *)buff;
 	
@@ -176,7 +156,7 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 
 	int count = 0, temp;
 
-	char *str = info->args, *res;
+	char *str = info->args;
 
 	int procLog;
 
@@ -186,25 +166,9 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 	char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
 	
 	char *prog = strsep(&str, ";"); // nome do programa a procurar
+	printf("%s\n", str);
 
-	int numberOfFork = 0,i = 0;
-	while(numberOfFork < MAX_STATS_FETCH_PROCS && (res = strsep(&str, ";")) != NULL) { // n era mais fácil passar do cliente só um array de pids no formato string, sem os ';'?
-		if (i == MAX_PIDS_FETCHED_BY_PROC) {
-			pids[numberOfFork][i] = NULL;
-			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
-			numberOfFork++;
-			pids[numberOfFork][0] = res;
-			//printf("%s [%d][%d]\n",pids[numberOfFork][0],numberOfFork,0); 
-			i = 1;
-		}
-		else {
-			pids[numberOfFork][i] = res;
-			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
-			i++;
-		}
-	}
-	pids[numberOfFork][i] = NULL;
-	//printf("------- %s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i);
+	int numberOfFork = splitPIDs(str,pids); // split dos PIDs de input
 
 	int p[2];
 	if (pipe(p) == -1) {
@@ -212,6 +176,7 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 		exit(1);
 	}
 
+	int i;
 	for (i = 0; i <= numberOfFork; i++) {
 		if (fork() == 0) {
 			close(p[0]); // n vai ler do pipe
@@ -219,7 +184,6 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 				strcpy(end + 1, pids[i][k]);
 				//printf("filho: %d iter: %d path:%s\n", i, k, path);
 				procLog = open(path, O_RDONLY);
-				// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
 
 				if (pread(procLog, procName, sizeof(char)* NAME_SIZE,offsetof(InfoFile,name)) == -1) { // só lê a string necessária
 					perror("Error reading process file");
@@ -260,6 +224,146 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 	close(pipe_d);
 }
 
+// recebe uma InfoStatusArgs no buff
+// a string que esta contém são os PIDs separados por ';'
+void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
+	InfoStatusArgs *info = (InfoStatusArgs *)buff;
+	
+	char path[PATH_SIZE], *end;
+	char *str = info->args;
+
+	int procLog;
+
+	end = stpncpy(path, destFolder, PATH_SIZE - 1);
+	end[0] = '/';
+
+	char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
+	int numberOfFork = splitPIDs(str,pids);
+
+	int p[2];
+	if (pipe(p) == -1) {
+		perror("Error opening anonymous pipe");
+		exit(1);
+	}
+
+	int i;
+	for (i = 0; i <= numberOfFork; i++) {
+		if (fork() == 0) {
+			close(p[0]); // n vai ler do pipe
+			char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
+			char uniqStrings[MAX_PIDS_FETCHED_BY_PROC+1][NAME_SIZE]; // array com strings únicas
+			int occupied = 0; // contabiliza o nº de strings no array uniqStrings
+
+			for(int k=0; pids[i][k] != NULL; k++) {
+				strcpy(end + 1, pids[i][k]);
+				//printf("filho: %d iter: %d path:%s\n", i, k, path);
+				procLog = open(path, O_RDONLY);
+				
+				if (pread(procLog, procName, sizeof(char)* NAME_SIZE,offsetof(InfoFile,name)) == -1) { // só lê a string necessária
+					perror("Error reading process file");
+				}
+				//printf(">string lida ficheiro: %s\n",procName);
+				int flag=1;
+				for(int j = 0; j < occupied && flag; j++) { // testar se o nome já consta na lista
+					//printf("String uniq no filho: %s\n",uniqStrings[j]);
+					if (strcmp(procName, uniqStrings[j]) == 0) {
+						flag = 0;
+						//printf("ja existe na lista %s\n", procName);
+					}
+				}
+				if (flag) strcpy(uniqStrings[occupied++],procName); // se não constar, adicionar ao array (meter por iSort no futuro?)
+
+				close(procLog);
+			}
+
+			for(int j=0;j<occupied; j++) {
+				//printf(">>pos %d: string: %s\n",j,uniqStrings[j]); // debug
+				if (write(p[1],uniqStrings[j],NAME_SIZE) == -1) { 
+					perror("Error writing total count to pipe");
+				}
+			}
+			close(p[1]);
+			_exit(1);
+		}
+	}
+
+	close(p[1]); // fechar o write do pipe
+
+	GPtrArray * uniqStringsTotal = g_ptr_array_new(); // array dinâmico para o array final
+	char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
+
+	int occupied;
+	while(read(p[0],procName,NAME_SIZE) > 0) { // para cada string recebida de filhos
+		int flag = 1, j;
+		occupied = uniqStringsTotal->len;
+		//printf("arrayLen: %d\n", occupied);
+		//printf("string recebido: %s\n",procName);
+		for(j = 0; j < occupied && flag; j++) { // testar se a string já consta na lista final
+			//printf("string uniq pai: %s\n",(char *) g_ptr_array_index(uniqStringsTotal, j));
+			if (strcmp(procName, g_ptr_array_index(uniqStringsTotal, j)) == 0) flag = 0;
+		}
+		//printf("flag: %d\n", flag);
+		if (flag) g_ptr_array_add(uniqStringsTotal, (gpointer) strndup(procName,NAME_SIZE)); // se não constar, adicionar ao array (meter por iSort no futuro?)
+	}
+	occupied = uniqStringsTotal->len;
+	//printf("arrayLen: %d\n", occupied); //debug
+	close(p[0]);
+	//debug
+	// for(int j=0;j<occupied; j++) {
+	// 	printf("pos %d: string: %s\n",j, (char *) g_ptr_array_index(uniqStringsTotal, j));
+	// }
+
+	int status;
+	while (wait(&status) != -1)
+		if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
+			perror("Error executing child process");
+
+	//abrir pipe de volta para o cliente com a resposta
+	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
+	sprintf(end, "/%d", info->pid);
+	int pipe_d = open(path, O_WRONLY);
+
+	char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
+	int len;
+	for(i=0;i<occupied;i++) {
+		len = snprintf(resultStr, MESSAGE_SIZE, "%s\n", (char *) g_ptr_array_index(uniqStringsTotal, i));
+		if (write(pipe_d,resultStr, sizeof(char)*len) == -1) {
+			perror("Error sending info back to client");
+		}
+	}
+	g_ptr_array_free(uniqStringsTotal,TRUE);
+
+	close(pipe_d);
+}
+
+
+//Recebe string que contém PIDS separados por ';' e array de output
+//Mete em cada pos do array um pid, 
+//De acordo com max de pids permitidos em macros para cada processo, retorna nº de procs necessários
+
+int splitPIDs(char * input, char * pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]) {
+	char * res;
+	int numberOfFork = 0,i = 0;
+	while(numberOfFork < MAX_STATS_FETCH_PROCS && (res = strsep(&input, ";")) != NULL) { // n era mais fácil passar do cliente só um array de pids no formato string, sem os ';'?
+		if (i == MAX_PIDS_FETCHED_BY_PROC) {
+			pids[numberOfFork][i] = NULL;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
+			numberOfFork++;
+			pids[numberOfFork][0] = res;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][0],numberOfFork,0); 
+			i = 1;
+		}
+		else {
+			pids[numberOfFork][i] = res;
+			//printf("%s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i); 
+			i++;
+		}
+	}
+	pids[numberOfFork][i] = NULL;
+	//printf("------- %s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i);
+	return numberOfFork;
+}
+
 void printRunningProc (gpointer key, gpointer value, gpointer pipe_d) {
 	procLogInit * procLog = (procLogInit *) value;
 
@@ -282,7 +386,7 @@ void printRunningProc (gpointer key, gpointer value, gpointer pipe_d) {
  */
 void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder) {
 	printf("received %d\n", *(int *)buff);
-	parse_funcs *funcs[] = { parse_init, parse_end, parse_status, parse_stats_time, parse_stats_command };
+	parse_funcs *funcs[] = { parse_init, parse_end, parse_status, parse_stats_time, parse_stats_command, parse_stats_uniq};
 	funcs[*(int *)buff](buff, live_procs, destFolder);
 }
 

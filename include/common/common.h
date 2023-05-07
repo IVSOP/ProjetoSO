@@ -21,8 +21,8 @@
 #define PIPELINE_MAX_PER_COMMAND 16
 
 //macros for exeuting stats commands
-#define MAX_STATS_FETCH_PROCS 16 // nº maximo de pids num stats request = MAX_PIDS_FETCHED BY_PROC * x; n sei esse x, supus que era 16
-#define MAX_PIDS_FETCHED_BY_PROC 16
+#define MAX_STATS_FETCH_PROCS 32 // nº maximo de pids num stats request = MAX_PIDS_FETCHED BY_PROC * x; n sei esse x, supus que era 16
+#define MAX_PIDS_FETCHED_BY_PROC 8
 
 #define MESSAGE_BUFF 1024 // qual é a diferença disto para INPUT_BUFF
 #define INPUT_BUFF MESSAGE_SIZE * 4
@@ -35,7 +35,8 @@ typedef enum {
     END = 1,
 	STATUS = 2,
 	STATS_TIME = 3,
-	STATS_COMMAND = 4
+	STATS_COMMAND = 4,
+	STATS_UNIQ = 5
 } msgType;
 
 //struct com informação necessária para o servidor sobre inicio de processo
@@ -80,5 +81,6 @@ typedef struct {
 	pid_t pid;
 	char args[NAME_SIZE];
 } InfoStatusArgs;
+
 
 #endif

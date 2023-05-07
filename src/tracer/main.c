@@ -171,6 +171,8 @@ void send_stats_request_args(msgType type, char ** args) {
 	}
 	end[0] = '\0';
 
+	//args terá só PIDS para stats_time e nomeProc+args para stats_command e stats_uniq
+
 	int fd = open(PIPE_NAME, O_WRONLY);
 
 	if (write(fd, &info, sizeof(InfoStatusArgs)) == -1) {
@@ -415,6 +417,11 @@ int main (int argc, char **argv) {
 		send_stats_request_args(STATS_TIME, argv + 2);
 	} else if (strcmp(argv[1], "stats-command") == 0) {
 		send_stats_request_args(STATS_COMMAND, argv + 2);
+	} else if (strcmp(argv[1],"stats-uniq") == 0) {
+		send_stats_request_args(STATS_UNIQ,argv+2);
+	} else {
+		perror("Input invalid");
+		exit(1);
 	}
 	return ret;
 }
