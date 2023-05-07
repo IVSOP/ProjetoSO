@@ -39,6 +39,7 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
 	//meter num ficheiro logs do processo
 	InfoFile log;
 	log.time = res->time;
+	log.type = res->type;
 	strcpy(log.name, proc_log->name);
 	write_to_process_file(res->pid, destFolder, &log);
 
@@ -106,11 +107,12 @@ void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
 			for(int k=0; pids[i][k] != NULL; k++) {
 				strcpy(end + 1, pids[i][k]);
 				printf("filho: %d iter: %d path:%s\n", i, k, path);
-				procLog = open(path, O_RDONLY);
-				// lseek(fd, ); não é preciso só porque é a primeira coisa no ficheiro
-
+				if ((procLog = open(path, O_RDONLY)) == -1) {
+					perror("Error opening file on child stats search");
+					continue; // saltar para próxima iteração visto que este proc n existe em registo
+				}
 				if (read(procLog, &temp, sizeof(long int)) == -1) {
-					perror("Error reading process log");
+					perror("Error reading proc file on child stats search");
 				}
 				close(procLog);
 				resTime += temp;
@@ -152,8 +154,6 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 	
 	char path[PATH_SIZE], *end;
 
-	char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
-
 	int count = 0, temp;
 
 	char *str = info->args;
@@ -180,22 +180,34 @@ void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder
 	for (i = 0; i <= numberOfFork; i++) {
 		if (fork() == 0) {
 			close(p[0]); // n vai ler do pipe
+			InfoFile fileLog;
 			for(int k=0; pids[i][k] != NULL; k++) {
 				strcpy(end + 1, pids[i][k]);
-				//printf("filho: %d iter: %d path:%s\n", i, k, path);
-				procLog = open(path, O_RDONLY);
-
-				if (pread(procLog, procName, sizeof(char)* NAME_SIZE,offsetof(InfoFile,name)) == -1) { // só lê a string necessária
-					perror("Error reading process file");
+				printf("filho: %d iter: %d path:%s\n", i, k, path);
+				if ((procLog = open(path, O_RDONLY)) == -1) {
+					perror("Error opening file on child stats search");
+					continue; // saltar para próxima iteração visto que este proc n existe em registo
 				}
-				if (strcmp(procName, prog) == 0) count ++;
+				if (read(procLog, &fileLog, sizeof(InfoFile)) == -1) { // tiro a struct toda porque terá de ler type e args
+					perror("Error reading proc file on child stats search");
+				}
+				if (fileLog.type == SINGLE) { // processo é singular
+					if (strcmp(fileLog.name, prog) == 0) count ++;
+				}
+				else { //processo é pipeline
+					char * progs[MAX_PIDS_FETCHED_BY_PROC];
+					int nOfProgs = splitProgs(fileLog.name, progs); // split dos progs numa pipeline para string
+					for (int j=0; j<nOfProgs;j++) {
+						if (strcmp(progs[j], prog) == 0) count ++;
+					}
+				}
 				close(procLog);
 			}
 			if (write(p[1],&count,sizeof(int)) == -1) {
 				perror("Error writing total count to pipe");
 			}
 			close(p[1]);
-			//printf("filho: %d totaltime: %ld\n",i,resTime);
+			//printf("filho: %d totalcount: %ld\n",i,count);
 			_exit(-1);
 		}
 	}
@@ -250,68 +262,57 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 	for (i = 0; i <= numberOfFork; i++) {
 		if (fork() == 0) {
 			close(p[0]); // n vai ler do pipe
-			char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
-			char uniqStrings[MAX_PIDS_FETCHED_BY_PROC+1][NAME_SIZE]; // array com strings únicas
-			int occupied = 0; // contabiliza o nº de strings no array uniqStrings
-
+			GPtrArray * uniqStrings = g_ptr_array_new_with_free_func(free); // meti array dinâmico, porque cada proc podia ter PIPELINE_MAX_COMMANDS o que acaba por ser um array com muito espaço desperdiçado (total: PIPELINE_MAX_COMMANDS * MAX_PIDS FETCHED BY PROC)
+			InfoFile fileLog;
 			for(int k=0; pids[i][k] != NULL; k++) {
 				strcpy(end + 1, pids[i][k]);
-				//printf("filho: %d iter: %d path:%s\n", i, k, path);
-				procLog = open(path, O_RDONLY);
-				
-				if (pread(procLog, procName, sizeof(char)* NAME_SIZE,offsetof(InfoFile,name)) == -1) { // só lê a string necessária
-					perror("Error reading process file");
+				printf("filho: %d iter: %d path:%s\n", i, k, path);
+				if ((procLog = open(path, O_RDONLY)) == -1) {
+					perror("Error opening file on child stats search");
+					continue; // saltar para próxima iteração visto que este proc n existe em registo
 				}
-				//printf(">string lida ficheiro: %s\n",procName);
-				int flag=1;
-				for(int j = 0; j < occupied && flag; j++) { // testar se o nome já consta na lista
-					//printf("String uniq no filho: %s\n",uniqStrings[j]);
-					if (strcmp(procName, uniqStrings[j]) == 0) {
-						flag = 0;
-						//printf("ja existe na lista %s\n", procName);
-					}
+				if (read(procLog, &fileLog, sizeof(InfoFile)) == -1) { // tiro a struct toda porque terá de ler type e args
+					perror("Error reading procfile on child stats search");
 				}
-				if (flag) strcpy(uniqStrings[occupied++],procName); // se não constar, adicionar ao array (meter por iSort no futuro?)
+				if (fileLog.type == SINGLE) { // processo é singular
+					addUniqueProg(fileLog.name,uniqStrings);
+				}
+				else { //processo é pipeline
+					char * progs[MAX_PIDS_FETCHED_BY_PROC];
+					int nOfProgs = splitProgs(fileLog.name, progs); // split dos progs numa pipeline para string
+					for (int j=0; j<nOfProgs;j++)
+						addUniqueProg(progs[j],uniqStrings);
 
+				//printf(">string lida ficheiro: %s\n",procName);
+				}
 				close(procLog);
 			}
 
+			int occupied = uniqStrings->len; // contabiliza o nº de strings no array uniqStrings
 			for(int j=0;j<occupied; j++) {
 				//printf(">>pos %d: string: %s\n",j,uniqStrings[j]); // debug
-				if (write(p[1],uniqStrings[j],NAME_SIZE) == -1) { 
-					perror("Error writing total count to pipe");
+				if (write(p[1],g_ptr_array_index(uniqStrings,j),NAME_SIZE) == -1) { 
+					perror("Error writing progName to pipe");
 				}
 			}
 			close(p[1]);
+			g_ptr_array_free(uniqStrings,TRUE);
 			_exit(1);
 		}
 	}
 
 	close(p[1]); // fechar o write do pipe
 
-	GPtrArray * uniqStringsTotal = g_ptr_array_new(); // array dinâmico para o array final
+	GPtrArray * uniqStringsTotal = g_ptr_array_new_with_free_func(free); // array dinâmico para o array final
+
 	char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
 
-	int occupied;
+	printf("No pai:---\n");
 	while(read(p[0],procName,NAME_SIZE) > 0) { // para cada string recebida de filhos
-		int flag = 1, j;
-		occupied = uniqStringsTotal->len;
-		//printf("arrayLen: %d\n", occupied);
-		//printf("string recebido: %s\n",procName);
-		for(j = 0; j < occupied && flag; j++) { // testar se a string já consta na lista final
-			//printf("string uniq pai: %s\n",(char *) g_ptr_array_index(uniqStringsTotal, j));
-			if (strcmp(procName, g_ptr_array_index(uniqStringsTotal, j)) == 0) flag = 0;
-		}
-		//printf("flag: %d\n", flag);
-		if (flag) g_ptr_array_add(uniqStringsTotal, (gpointer) strndup(procName,NAME_SIZE)); // se não constar, adicionar ao array (meter por iSort no futuro?)
+		addUniqueProg(procName,uniqStringsTotal);
 	}
-	occupied = uniqStringsTotal->len;
-	//printf("arrayLen: %d\n", occupied); //debug
+
 	close(p[0]);
-	//debug
-	// for(int j=0;j<occupied; j++) {
-	// 	printf("pos %d: string: %s\n",j, (char *) g_ptr_array_index(uniqStringsTotal, j));
-	// }
 
 	int status;
 	while (wait(&status) != -1)
@@ -323,6 +324,9 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 	sprintf(end, "/%d", info->pid);
 	int pipe_d = open(path, O_WRONLY);
 
+	int occupied = uniqStringsTotal->len;
+	printf("arrayLen: %d\n", occupied); //debug
+	
 	char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
 	int len;
 	for(i=0;i<occupied;i++) {
@@ -336,11 +340,26 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 	close(pipe_d);
 }
 
+//Dada uma string e um GPtrArray de strings, coloca a string no array se ainda n existir
+int addUniqueProg(char * progName, GPtrArray * array) {
+	int flag=1;
+	int occupied = array->len;
+	printf("nome recebido: %s\n",progName);
+	for(int j = 0; j < occupied && flag; j++) { // testar se o nome já consta na lista
+		if (strcmp(progName, g_ptr_array_index(array,j)) == 0) {
+			flag = 0;
+			printf("ja existe na lista %s\n", (char *) g_ptr_array_index(array,j));
+		}
+	}
+	if (flag) g_ptr_array_add(array,strndup(progName, NAME_SIZE)); // se não constar, adicionar ao array (meter por iSort no futuro?)
+	
+	for (int j = 0; j < (int) array->len; j++) printf("pos [%d] %s\n", j, (char *) g_ptr_array_index(array,j));
+	return 0;
+}
 
-//Recebe string que contém PIDS separados por ';' e array de output
-//Mete em cada pos do array um pid, 
+//Recebe string de formato "PID1;PID2;...;PIDN" e array de output
+//Mete em cada pos do array um pid
 //De acordo com max de pids permitidos em macros para cada processo, retorna nº de procs necessários
-
 int splitPIDs(char * input, char * pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]) {
 	char * res;
 	int numberOfFork = 0,i = 0;
@@ -362,6 +381,28 @@ int splitPIDs(char * input, char * pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_
 	pids[numberOfFork][i] = NULL;
 	//printf("------- %s [%d][%d]\n",pids[numberOfFork][i],numberOfFork,i);
 	return numberOfFork;
+}
+
+//Recebe pipeline de cmds no formato "NOMECMD1 | NOMECMD2 | ... | NOMECMDN"
+// Mete um nomeCMD em cada pos do array progs
+//Destrói a string recebida
+
+int splitProgs(char * input, char * progs[PIPELINE_MAX_COMMANDS]) {
+	char * res;
+	int i = 0;
+	//partição dos comandos em cada array
+	printf("string orig: %s\n",input);
+	while (i < PIPELINE_MAX_COMMANDS && (res = strsep(&input, " ")) != NULL) {
+		if (res[0] != '|') {
+			progs[i] = res;
+			//printf("cmd[%d][%d] = %s (%s)\n", i, j, cmd[i][j], res);
+			i++;
+		}
+	}
+	for(int j=0; j < i ; j++) printf("pos [%d] prog: [%s]\n",j,progs[j]);
+	printf("total progs: %d\n",i);
+
+	return i;
 }
 
 void printRunningProc (gpointer key, gpointer value, gpointer pipe_d) {

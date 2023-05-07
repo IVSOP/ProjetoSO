@@ -71,7 +71,7 @@ int simple_execute(char * command) {
 	long int totalTime = end_time.tv_sec * 1000 + end_time.tv_usec / 1000;
 
 	// ping final ao servidor
-	ping_end(fd, new_pid, totalTime); 
+	ping_end(fd, new_pid, totalTime, SINGLE); 
 
 	// notificar o utilizador
 	memset(userFeedback, 0, sizeof(char) * NAME_SIZE);
@@ -356,7 +356,6 @@ int pipeline_execute(char * command) {
 	struct timeval start_time;
 	gettimeofday(&start_time, NULL);
 
-
 	//ping inicial ao servidor
 	ping_init(fd, new_pid, pipeName, &start_time);
 
@@ -377,7 +376,7 @@ int pipeline_execute(char * command) {
 	long int totalTime = end_time.tv_sec * 1000 + end_time.tv_usec / 1000;
 
 	// ping final ao servidor
-	ping_end(fd, new_pid, totalTime); 
+	ping_end(fd, new_pid, totalTime, PIPELINE); 
 
 	// notificar o utilizador
 	memset(userFeedback, 0, sizeof(char) * NAME_SIZE);
@@ -418,9 +417,9 @@ int main (int argc, char **argv) {
 	} else if (strcmp(argv[1], "stats-command") == 0) {
 		send_stats_request_args(STATS_COMMAND, argv + 2);
 	} else if (strcmp(argv[1],"stats-uniq") == 0) {
-		send_stats_request_args(STATS_UNIQ,argv+2);
+		send_stats_request_args(STATS_UNIQ, argv + 2);
 	} else {
-		perror("Input invalid");
+		perror("Command invalid");
 		exit(1);
 	}
 	return ret;

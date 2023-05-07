@@ -6,7 +6,9 @@
 
 #include "common.h"
 
+int addUniqueProg(char * progName, GPtrArray * array);
 int splitPIDs(char * input, char * pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]);
+int splitProgs(char * input, char * progs[PIPELINE_MAX_COMMANDS]);
 void parse_inputs(char * buff,GHashTable * live_procs, char * destFolder); // mudar estes argumentos todos para uma struct (expansível sem requerer restruturações)? 
 InfoFile * read_from_process_file(pid_t pid, char * destFolder);
 void write_to_process_file (pid_t pid, char * folder, InfoFile * info);

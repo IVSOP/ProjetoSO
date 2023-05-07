@@ -32,13 +32,14 @@ void ping_init (int fd, pid_t pid, char * name, struct timeval * time) {
  * Escrever informação final sobre processo, quando é terminado no cliente
  * Args: fd do servidor, pid do processo terminado
  */
-void ping_end (int fd, pid_t pid, long int totalTime) {
+void ping_end (int fd, pid_t pid, long int totalTime, cmdType type) {
 	
 	InfoEnd new = {
 		.type = END,
 		.procEnd = {
 			.pid = pid,
-			.time = totalTime
+			.time = totalTime,
+			.type = type
 		}
 	};
 	message_server(fd, &new, sizeof(InfoEnd));
