@@ -266,7 +266,7 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 			InfoFile fileLog;
 			for(int k=0; pids[i][k] != NULL; k++) {
 				strcpy(end + 1, pids[i][k]);
-				printf("filho: %d iter: %d path:%s\n", i, k, path);
+				//printf("filho: %d iter: %d path:%s\n", i, k, path);
 				if ((procLog = open(path, O_RDONLY)) == -1) {
 					perror("Error opening file on child stats search");
 					continue; // saltar para próxima iteração visto que este proc n existe em registo
@@ -307,7 +307,7 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 
 	char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
 
-	printf("No pai:---\n");
+	//printf("No pai:---\n");
 	while(read(p[0],procName,NAME_SIZE) > 0) { // para cada string recebida de filhos
 		addUniqueProg(procName,uniqStringsTotal);
 	}
@@ -325,7 +325,7 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 	int pipe_d = open(path, O_WRONLY);
 
 	int occupied = uniqStringsTotal->len;
-	printf("arrayLen: %d\n", occupied); //debug
+	//printf("arrayLen: %d\n", occupied); //debug
 	
 	char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
 	int len;
@@ -344,16 +344,16 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 int addUniqueProg(char * progName, GPtrArray * array) {
 	int flag=1;
 	int occupied = array->len;
-	printf("nome recebido: %s\n",progName);
+	//printf("nome recebido: %s\n",progName);
 	for(int j = 0; j < occupied && flag; j++) { // testar se o nome já consta na lista
 		if (strcmp(progName, g_ptr_array_index(array,j)) == 0) {
 			flag = 0;
-			printf("ja existe na lista %s\n", (char *) g_ptr_array_index(array,j));
+			//printf("ja existe na lista %s\n", (char *) g_ptr_array_index(array,j));
 		}
 	}
 	if (flag) g_ptr_array_add(array,strndup(progName, NAME_SIZE)); // se não constar, adicionar ao array (meter por iSort no futuro?)
 	
-	for (int j = 0; j < (int) array->len; j++) printf("pos [%d] %s\n", j, (char *) g_ptr_array_index(array,j));
+	//for (int j = 0; j < (int) array->len; j++) printf("pos [%d] %s\n", j, (char *) g_ptr_array_index(array,j));
 	return 0;
 }
 
@@ -399,8 +399,8 @@ int splitProgs(char * input, char * progs[PIPELINE_MAX_COMMANDS]) {
 			i++;
 		}
 	}
-	for(int j=0; j < i ; j++) printf("pos [%d] prog: [%s]\n",j,progs[j]);
-	printf("total progs: %d\n",i);
+	//for(int j=0; j < i ; j++) printf("pos [%d] prog: [%s]\n",j,progs[j]);
+	//printf("total progs: %d\n",i);
 
 	return i;
 }
