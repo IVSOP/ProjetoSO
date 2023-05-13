@@ -288,9 +288,9 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 						addUniqueProg(fileLog.name,uniqStrings);
 					}
 					else { //processo é pipeline
-						char * progs[MAX_PIDS_FETCHED_BY_PROC];
+						char * progs[PIPELINE_MAX_COMMANDS];
 						int nOfProgs = splitProgs(fileLog.name, progs); // split dos progs numa pipeline para string
-						for (int j=0; j<nOfProgs;j++)
+						for (int j = 0; j < nOfProgs;j++)
 							addUniqueProg(progs[j],uniqStrings);
 
 					//printf(">string lida ficheiro: %s\n",procName);
@@ -301,7 +301,7 @@ void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
 				int occupied = uniqStrings->len; // contabiliza o nº de strings no array uniqStrings
 				for(int j=0;j<occupied; j++) {
 					//printf(">>pos %d: string: %s\n",j,uniqStrings[j]); // debug
-					if (write(p[1],g_ptr_array_index(uniqStrings,j),NAME_SIZE) == -1) { 
+					if (write(p[1], g_ptr_array_index(uniqStrings,j), NAME_SIZE) == -1) { 
 						perror("Error writing progName to pipe");
 					}
 				}
