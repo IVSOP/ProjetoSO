@@ -75,7 +75,6 @@ typedef struct {
 // structs guardadas em ficheiros de procs terminados
 // requer indicação do tipo de comando (singular ou pipe), funcionalidades dependem disso
 typedef struct {
-	// pid_t pid;
 	long int time;
 	char name[NAME_SIZE];
 	cmdType type;
@@ -85,7 +84,6 @@ typedef struct {
 typedef struct {
 	msgType type;
 	pid_t pid;
-	// void *?????????????
 } InfoStatus;
 
 // struct com pedido de stats para PIDS dados, ao servidor, mais indicação do tipo de mensagem

@@ -328,7 +328,6 @@ int pipeline_execute(char * command) {
 		}
 	}
 
-	// unsafe, i e j podem ter ultrapassado bounds??? whati are you oni abouti
 	cmd[i][j] = NULL; // necessário para o último comando
 	//printf("cmd[%d][%d] = NULL\n---------------------\n", i, j);
 	i++;
@@ -402,7 +401,6 @@ int main (int argc, char **argv) {
 	int ret = 0;
 	if (argc < 2) return 1;
 
-	// maneira rota de usar flags mas não interessa
 	if (strcmp(argv[1], "execute") == 0) { // execute individual
 		if (strcmp(argv[2], "-u") == 0) {
 			ret = simple_execute(argv[3]);
