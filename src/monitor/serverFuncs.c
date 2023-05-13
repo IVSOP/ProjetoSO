@@ -509,17 +509,3 @@ int read_from_client(GHashTable * live_procs, char * dest_folder) {
 
 	return 0;
 }
-
-void send_to_client(pid_t pid, void *info, size_t len) {
-	char path[PATH_SIZE];
-	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
-	sprintf(end, "/%d", pid);
-
-	int fd = open(path, O_RDONLY);
-
-	if (write(fd, info, len) == -1) {
-		perror("Error writing to client");
-	}
-
-	close(fd);
-}
