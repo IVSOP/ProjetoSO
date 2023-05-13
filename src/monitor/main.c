@@ -6,7 +6,7 @@ void freeProcLog(void * procLog) {
     free(data);
 }
 
-void daemonize() {
+void daemonize(void) {
 	pid_t pid, sid;
 
     // Fork the process

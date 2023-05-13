@@ -204,89 +204,53 @@ void pipeCommands(char *** cmd, int size) {
 		perror("Command isn´t pipeline");
 		exit(2);
 	}
-	// não é preciso?? ao ter size == 2, nao entra no loop intermedio acho e dá direito
-	// if (size == 2) {
-	// 	int p[2];
-	// 	if (pipe(p) == -1) {
-	// 		perror("Error making pipe");
-	// 	}
+	
+	int fd_arr[size - 1][2], i;
+	if (pipe(fd_arr[0]) == -1) {
+		perror("Error making pipe");
+		exit(1);
+	}
 
-	// 	if (fork() == 0) {
-	// 		// filho vai ler
-	// 		close(p[1]);
-	// 		dup2(p[0], STDIN_FILENO);
-	// 		close(p[0]);
+	if (fork() == 0) {
+		dup2(fd_arr[0][1], STDOUT_FILENO);
+		close(fd_arr[0][1]);
 
-	// 		execvp(cmd[1][0], cmd[1]);
-	// 		_exit(1); // caso dê erro
-	// 	} else {
-	// 		// pai vai escrever
-	// 		if (fork() == 0) {
-	// 			close(p[0]);
-	// 			dup2(p[1], STDOUT_FILENO);
-	// 			close(p[1]);
+		close(fd_arr[0][0]); // não vai ler do pipe
 
-	// 			execvp(cmd[0][0], cmd[0]);
-	// 			_exit(1);
-	// 		}
-	// 	}
+		execvp(cmd[0][0], cmd[0]);
+		_exit(1);
+	}
 
-	// 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	// 	close(p[1]);
-	// 	close(p[0]);
-
-
-	// 	while (wait(NULL) != -1);
-
-	// } else {
-		int fd_arr[size - 1][2], i;
-		if (pipe(fd_arr[0]) == -1) {
+	for (i = 1; i < size - 1; i++) {
+		close(fd_arr[i - 1][1]);
+		if (pipe(fd_arr[i]) == -1) {
 			perror("Error making pipe");
 			exit(1);
 		}
-
-		if (fork() == 0) {
-			dup2(fd_arr[0][1], STDOUT_FILENO);
-			close(fd_arr[0][1]);
-
-			close(fd_arr[0][0]); // não vai ler do pipe
-
-			execvp(cmd[0][0], cmd[0]);
-			_exit(1);
-		}
-
-
-		for (i = 1; i < size - 1; i++) {
-			close(fd_arr[i - 1][1]);
-			if (pipe(fd_arr[i]) == -1) {
-				perror("Error making pipe");
-				exit(1);
-			}
-			if (fork() == 0) {
-				dup2(fd_arr[i - 1][0], STDIN_FILENO);
-				close(fd_arr[i - 1][0]);
-
-				dup2(fd_arr[i][1], STDOUT_FILENO);
-				close(fd_arr[i][1]);
-
-				execvp(cmd[i][0], cmd[i]);
-				_exit(1);
-			}
-			close(fd_arr[i - 1][0]);
-		}
-
-		close(fd_arr[i - 1][1]); // nunca vai escrever para o pipe
-
 		if (fork() == 0) {
 			dup2(fd_arr[i - 1][0], STDIN_FILENO);
 			close(fd_arr[i - 1][0]);
 
+			dup2(fd_arr[i][1], STDOUT_FILENO);
+			close(fd_arr[i][1]);
 
-			execvp(cmd[size - 1][0], cmd[size - 1]);
+			execvp(cmd[i][0], cmd[i]);
 			_exit(1);
 		}
 		close(fd_arr[i - 1][0]);
-	//}
+	}
+
+	close(fd_arr[i - 1][1]); // nunca vai escrever para o pipe
+
+	if (fork() == 0) {
+		dup2(fd_arr[i - 1][0], STDIN_FILENO);
+		close(fd_arr[i - 1][0]);
+
+
+		execvp(cmd[size - 1][0], cmd[size - 1]);
+		_exit(1);
+	}
+	close(fd_arr[i - 1][0]);
 
 	int status;
 	while (wait(&status) != -1) {
