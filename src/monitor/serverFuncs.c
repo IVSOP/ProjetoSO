@@ -58,286 +58,298 @@ void parse_end(char *buff, GHashTable * live_procs, char * destFolder) {
  * parse da mensagem de status de um cliente
  */
 void parse_status(char *buff, GHashTable * live_procs, char * destFolder) {
-	//extrair mensagem para struct End
-	buff += offsetof(InfoStatus, pid); // para suportar padding na struct
-	
-	pid_t pipePid = *(int *)buff;
+	if (fork() == 0) {
+		//extrair mensagem para struct End
+		buff += offsetof(InfoStatus, pid); // para suportar padding na struct
 
-	char path[PATH_SIZE];
-	char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
-	sprintf(end, "/%d", pipePid);
-	int pipe_d = open(path, O_WRONLY);
+		pid_t pipePid = *(int *)buff;
 
-	g_hash_table_foreach (live_procs, printRunningProc, &pipe_d); // mudar depois, forma rafeira de devolver ao cliente o status
+		char path[PATH_SIZE];
+		char *end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1);
+		sprintf(end, "/%d", pipePid);
+		int pipe_d = open(path, O_WRONLY);
 
-	close(pipe_d); // fechar o pipe de comunicação do status
+		g_hash_table_foreach (live_procs, printRunningProc, &pipe_d); // mudar depois, forma rafeira de devolver ao cliente o status
+
+		close(pipe_d); // fechar o pipe de comunicação do status
+		_exit(0);
+	}
 }
 
 // recebe uma InfoStatusArgs no buff
 // a string que esta contém são os PIDs separados por ';'
 void parse_stats_time (char *buff, GHashTable * live_procs, char * destFolder) {
-	InfoStatusArgs *info = (InfoStatusArgs *)buff;
-	
-	char path[PATH_SIZE], *end;
+	if (fork() == 0) {
+		InfoStatusArgs *info = (InfoStatusArgs *)buff;
+		
+		char path[PATH_SIZE], *end;
 
-	long int resTime = 0, temp;
+		long int resTime = 0, temp;
 
-	char *str = info->args;
+		char *str = info->args;
 
-	int procLog;
+		int procLog;
 
-	//parte do path do pipe de resposta de stats, falta só o pid específico no fim do path, que é adicionado nos forks;
-	end = stpncpy(path, destFolder, PATH_SIZE - 1);
-	end[0] = '/';
+		//parte do path do pipe de resposta de stats, falta só o pid específico no fim do path, que é adicionado nos forks;
+		end = stpncpy(path, destFolder, PATH_SIZE - 1);
+		end[0] = '/';
 
-	char * pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
+		char * pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
 
-	int numberOfFork = splitPIDs(str,pids); // split dos PIDs de input
+		int numberOfFork = splitPIDs(str,pids); // split dos PIDs de input
 
-	int p[2];
-	if (pipe(p) == -1) {
-		perror("Error opening anonymous pipe");
-		exit(1);
-	}
-
-	int i;
-	for (i = 0; i <= numberOfFork; i++) {
-		if (fork() == 0) {
-			close(p[0]); // n vai ler do pipe
-			for(int k=0; pids[i][k] != NULL; k++) {
-				strcpy(end + 1, pids[i][k]);
-				printf("filho: %d iter: %d path:%s\n", i, k, path);
-				if ((procLog = open(path, O_RDONLY)) == -1) {
-					perror("Error opening file on child stats search");
-					continue; // saltar para próxima iteração visto que este proc n existe em registo
-				}
-				if (read(procLog, &temp, sizeof(long int)) == -1) {
-					perror("Error reading proc file on child stats search");
-				}
-				close(procLog);
-				resTime += temp;
-			}
-			if (write(p[1],&resTime,sizeof(long int)) == -1) {
-				perror("Error writing totaltime to pipe");
-			}
-			close(p[1]);
-			printf("filho: %d totaltime: %ld\n",i,resTime);
-			_exit(-1);
+		int p[2];
+		if (pipe(p) == -1) {
+			perror("Error opening anonymous pipe");
+			exit(1);
 		}
-	}
-	close(p[1]);
-	while(read(p[0],&temp,sizeof(long int)) > 0) {
-		resTime += temp;
-	}
-	close(p[0]);
-	int status;
-	while (wait(&status) != -1)
-		if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
-			perror("Error executing child process");
 
-	//abrir pipe de volta para o cliente com a resposta 
-	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
-	sprintf(end, "/%d", info->pid);
-	int pipe_d = open(path, O_WRONLY);
+		int i;
+		for (i = 0; i <= numberOfFork; i++) {
+			if (fork() == 0) {
+				close(p[0]); // n vai ler do pipe
+				for(int k=0; pids[i][k] != NULL; k++) {
+					strcpy(end + 1, pids[i][k]);
+					printf("filho: %d iter: %d path:%s\n", i, k, path);
+					if ((procLog = open(path, O_RDONLY)) == -1) {
+						perror("Error opening file on child stats search");
+						continue; // saltar para próxima iteração visto que este proc n existe em registo
+					}
+					if (read(procLog, &temp, sizeof(long int)) == -1) {
+						perror("Error reading proc file on child stats search");
+					}
+					close(procLog);
+					resTime += temp;
+				}
+				if (write(p[1],&resTime,sizeof(long int)) == -1) {
+					perror("Error writing totaltime to pipe");
+				}
+				close(p[1]);
+				printf("filho: %d totaltime: %ld\n",i,resTime);
+				_exit(-1);
+			}
+		}
+		close(p[1]);
+		while(read(p[0],&temp,sizeof(long int)) > 0) {
+			resTime += temp;
+		}
+		close(p[0]);
+		int status;
+		while (wait(&status) != -1)
+			if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
+				perror("Error executing child process");
 
-	int len = snprintf(path, PATH_SIZE, "Total execution time is %ld ms\n", resTime);
-	if (write(pipe_d, path, len) == -1) {
-		perror("Error sending info back to client");
+		//abrir pipe de volta para o cliente com a resposta 
+		end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
+		sprintf(end, "/%d", info->pid);
+		int pipe_d = open(path, O_WRONLY);
+
+		int len = snprintf(path, PATH_SIZE, "Total execution time is %ld ms\n", resTime);
+		if (write(pipe_d, path, len) == -1) {
+			perror("Error sending info back to client");
+		}
+
+		close(pipe_d);
+		_exit(0);
 	}
-
-	close(pipe_d);
 }
 
 // recebe uma InfoStatusArgs no buff - contém string de PIDs separados por ';'
 void parse_stats_command (char *buff, GHashTable * live_procs, char * destFolder) {
-	InfoStatusArgs *info = (InfoStatusArgs *)buff;
-	
-	char path[PATH_SIZE], *end;
+	if (fork() == 0) {
+		InfoStatusArgs *info = (InfoStatusArgs *)buff;
+		
+		char path[PATH_SIZE], *end;
 
-	int count = 0, temp;
+		int count = 0, temp;
 
-	char *str = info->args;
+		char *str = info->args;
 
-	int procLog;
+		int procLog;
 
-	end = stpncpy(path, destFolder, PATH_SIZE - 1);
-	end[0] = '/';
+		end = stpncpy(path, destFolder, PATH_SIZE - 1);
+		end[0] = '/';
 
-	char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
-	
-	char *prog = strsep(&str, ";"); // nome do programa a procurar
-	printf("%s\n", str);
+		char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
+		
+		char *prog = strsep(&str, ";"); // nome do programa a procurar
+		// printf("%s\n", str);
 
-	int numberOfFork = splitPIDs(str,pids); // split dos PIDs de input
+		int numberOfFork = splitPIDs(str,pids); // split dos PIDs de input
 
-	int p[2];
-	if (pipe(p) == -1) {
-		perror("Error opening anonymous pipe");
-		exit(1);
-	}
-
-	int i;
-	for (i = 0; i <= numberOfFork; i++) {
-		if (fork() == 0) {
-			close(p[0]); // n vai ler do pipe
-			InfoFile fileLog;
-			for(int k=0; pids[i][k] != NULL; k++) {
-				strcpy(end + 1, pids[i][k]);
-				printf("filho: %d iter: %d path:%s\n", i, k, path);
-				if ((procLog = open(path, O_RDONLY)) == -1) {
-					perror("Error opening file on child stats search");
-					continue; // saltar para próxima iteração visto que este proc n existe em registo
-				}
-				if (read(procLog, &fileLog, sizeof(InfoFile)) == -1) { // tiro a struct toda porque terá de ler type e args
-					perror("Error reading proc file on child stats search");
-				}
-				if (fileLog.type == SINGLE) { // processo é singular
-					if (strcmp(fileLog.name, prog) == 0) count ++;
-				}
-				else { //processo é pipeline
-					char * progs[MAX_PIDS_FETCHED_BY_PROC];
-					int nOfProgs = splitProgs(fileLog.name, progs); // split dos progs numa pipeline para string
-					for (int j=0; j<nOfProgs;j++) {
-						if (strcmp(progs[j], prog) == 0) count ++;
-					}
-				}
-				close(procLog);
-			}
-			if (write(p[1],&count,sizeof(int)) == -1) {
-				perror("Error writing total count to pipe");
-			}
-			close(p[1]);
-			//printf("filho: %d totalcount: %ld\n",i,count);
-			_exit(-1);
+		int p[2];
+		if (pipe(p) == -1) {
+			perror("Error opening anonymous pipe");
+			exit(1);
 		}
+
+		int i;
+		for (i = 0; i <= numberOfFork; i++) {
+			if (fork() == 0) {
+				close(p[0]); // n vai ler do pipe
+				InfoFile fileLog;
+				for(int k = 0; pids[i][k] != NULL; k++) {
+					strcpy(end + 1, pids[i][k]);
+					// printf("filho: %d iter: %d path:%s\n", i, k, path);
+					if ((procLog = open(path, O_RDONLY)) == -1) {
+						perror("Error opening file on child stats search");
+						continue; // saltar para próxima iteração visto que este proc n existe em registo
+					}
+					if (read(procLog, &fileLog, sizeof(InfoFile)) == -1) { // tiro a struct toda porque terá de ler type e args
+						perror("Error reading proc file on child stats search");
+					}
+					if (fileLog.type == SINGLE) { // processo é singular
+						if (strcmp(fileLog.name, prog) == 0) count ++;
+					}
+					else { //processo é pipeline
+						char * progs[PIPELINE_MAX_COMMANDS];
+						int nOfProgs = splitProgs(fileLog.name, progs); // split dos progs numa pipeline para string
+						for (int j=0; j<nOfProgs;j++) {
+							if (strcmp(progs[j], prog) == 0) count ++;
+						}
+					}
+					close(procLog);
+				}
+				if (write(p[1],&count,sizeof(int)) == -1) {
+					perror("Error writing total count to pipe");
+				}
+				close(p[1]);
+				//printf("filho: %d totalcount: %ld\n",i,count);
+				_exit(-1);
+			}
+		}
+
+		close(p[1]);
+		while(read(p[0], &temp, sizeof(int)) > 0) {
+			count += temp;
+		}
+		close(p[0]);
+
+		int status;
+		while (wait(&status) != -1)
+			if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
+				perror("Error executing child process");
+
+		//abrir pipe de volta para o cliente com a resposta
+		end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
+		sprintf(end, "/%d", info->pid);
+		int pipe_d = open(path, O_WRONLY);
+
+		int len = snprintf(path, PATH_SIZE, "%s was executed %d times\n", prog, count);
+		if (write(pipe_d, path, len) == -1) {
+			perror("Error sending info back to client");
+		}
+
+		close(pipe_d);
+		_exit(0);
 	}
-
-	close(p[1]);
-	while(read(p[0],&temp,sizeof(long int)) > 0) {
-		count += temp;
-	}
-	close(p[0]);
-
-	int status;
-	while (wait(&status) != -1)
-		if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
-			perror("Error executing child process");
-
-	//abrir pipe de volta para o cliente com a resposta
-	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
-	sprintf(end, "/%d", info->pid);
-	int pipe_d = open(path, O_WRONLY);
-
-	int len = snprintf(path, PATH_SIZE, "%s was executed %d times\n", prog, count);
-	if (write(pipe_d, path, len) == -1) {
-		perror("Error sending info back to client");
-	}
-
-	close(pipe_d);
 }
 
 // recebe uma InfoStatusArgs no buff
 // a string que esta contém são os PIDs separados por ';'
 void parse_stats_uniq (char *buff, GHashTable * live_procs, char * destFolder) {
-	InfoStatusArgs *info = (InfoStatusArgs *)buff;
-	
-	char path[PATH_SIZE], *end;
-	char *str = info->args;
+	if (fork() == 0) {
+		InfoStatusArgs *info = (InfoStatusArgs *)buff;
+		
+		char path[PATH_SIZE], *end;
+		char *str = info->args;
 
-	int procLog;
+		int procLog;
 
-	end = stpncpy(path, destFolder, PATH_SIZE - 1);
-	end[0] = '/';
+		end = stpncpy(path, destFolder, PATH_SIZE - 1);
+		end[0] = '/';
 
-	char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
-	int numberOfFork = splitPIDs(str,pids);
+		char *pids[MAX_STATS_FETCH_PROCS][MAX_PIDS_FETCHED_BY_PROC+1]; // guarda pids do pedido de stats, no formato de string
+		int numberOfFork = splitPIDs(str,pids);
 
-	int p[2];
-	if (pipe(p) == -1) {
-		perror("Error opening anonymous pipe");
-		exit(1);
-	}
-
-	int i;
-	for (i = 0; i <= numberOfFork; i++) {
-		if (fork() == 0) {
-			close(p[0]); // n vai ler do pipe
-			GPtrArray * uniqStrings = g_ptr_array_new_with_free_func(free); // meti array dinâmico, porque cada proc podia ter PIPELINE_MAX_COMMANDS o que acaba por ser um array com muito espaço desperdiçado (total: PIPELINE_MAX_COMMANDS * MAX_PIDS FETCHED BY PROC)
-			InfoFile fileLog;
-			for(int k=0; pids[i][k] != NULL; k++) {
-				strcpy(end + 1, pids[i][k]);
-				//printf("filho: %d iter: %d path:%s\n", i, k, path);
-				if ((procLog = open(path, O_RDONLY)) == -1) {
-					perror("Error opening file on child stats search");
-					continue; // saltar para próxima iteração visto que este proc n existe em registo
-				}
-				if (read(procLog, &fileLog, sizeof(InfoFile)) == -1) { // tiro a struct toda porque terá de ler type e args
-					perror("Error reading procfile on child stats search");
-				}
-				if (fileLog.type == SINGLE) { // processo é singular
-					addUniqueProg(fileLog.name,uniqStrings);
-				}
-				else { //processo é pipeline
-					char * progs[MAX_PIDS_FETCHED_BY_PROC];
-					int nOfProgs = splitProgs(fileLog.name, progs); // split dos progs numa pipeline para string
-					for (int j=0; j<nOfProgs;j++)
-						addUniqueProg(progs[j],uniqStrings);
-
-				//printf(">string lida ficheiro: %s\n",procName);
-				}
-				close(procLog);
-			}
-
-			int occupied = uniqStrings->len; // contabiliza o nº de strings no array uniqStrings
-			for(int j=0;j<occupied; j++) {
-				//printf(">>pos %d: string: %s\n",j,uniqStrings[j]); // debug
-				if (write(p[1],g_ptr_array_index(uniqStrings,j),NAME_SIZE) == -1) { 
-					perror("Error writing progName to pipe");
-				}
-			}
-			close(p[1]);
-			g_ptr_array_free(uniqStrings,TRUE);
-			_exit(1);
+		int p[2];
+		if (pipe(p) == -1) {
+			perror("Error opening anonymous pipe");
+			exit(1);
 		}
-	}
 
-	close(p[1]); // fechar o write do pipe
+		int i;
+		for (i = 0; i <= numberOfFork; i++) {
+			if (fork() == 0) {
+				close(p[0]); // n vai ler do pipe
+				GPtrArray * uniqStrings = g_ptr_array_new_with_free_func(free); // meti array dinâmico, porque cada proc podia ter PIPELINE_MAX_COMMANDS o que acaba por ser um array com muito espaço desperdiçado (total: PIPELINE_MAX_COMMANDS * MAX_PIDS FETCHED BY PROC)
+				InfoFile fileLog;
+				for(int k=0; pids[i][k] != NULL; k++) {
+					strcpy(end + 1, pids[i][k]);
+					//printf("filho: %d iter: %d path:%s\n", i, k, path);
+					if ((procLog = open(path, O_RDONLY)) == -1) {
+						perror("Error opening file on child stats search");
+						continue; // saltar para próxima iteração visto que este proc n existe em registo
+					}
+					if (read(procLog, &fileLog, sizeof(InfoFile)) == -1) { // tiro a struct toda porque terá de ler type e args
+						perror("Error reading procfile on child stats search");
+					}
+					if (fileLog.type == SINGLE) { // processo é singular
+						addUniqueProg(fileLog.name,uniqStrings);
+					}
+					else { //processo é pipeline
+						char * progs[MAX_PIDS_FETCHED_BY_PROC];
+						int nOfProgs = splitProgs(fileLog.name, progs); // split dos progs numa pipeline para string
+						for (int j=0; j<nOfProgs;j++)
+							addUniqueProg(progs[j],uniqStrings);
 
-	GPtrArray * uniqStringsTotal = g_ptr_array_new_with_free_func(free); // array dinâmico para o array final
+					//printf(">string lida ficheiro: %s\n",procName);
+					}
+					close(procLog);
+				}
 
-	char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
-
-	//printf("No pai:---\n");
-	while(read(p[0],procName,NAME_SIZE) > 0) { // para cada string recebida de filhos
-		addUniqueProg(procName,uniqStringsTotal);
-	}
-
-	close(p[0]);
-
-	int status;
-	while (wait(&status) != -1)
-		if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
-			perror("Error executing child process");
-
-	//abrir pipe de volta para o cliente com a resposta
-	end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
-	sprintf(end, "/%d", info->pid);
-	int pipe_d = open(path, O_WRONLY);
-
-	int occupied = uniqStringsTotal->len;
-	//printf("arrayLen: %d\n", occupied); //debug
-	
-	char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
-	int len;
-	for(i=0;i<occupied;i++) {
-		len = snprintf(resultStr, MESSAGE_SIZE, "%s\n", (char *) g_ptr_array_index(uniqStringsTotal, i));
-		if (write(pipe_d,resultStr, sizeof(char)*len) == -1) {
-			perror("Error sending info back to client");
+				int occupied = uniqStrings->len; // contabiliza o nº de strings no array uniqStrings
+				for(int j=0;j<occupied; j++) {
+					//printf(">>pos %d: string: %s\n",j,uniqStrings[j]); // debug
+					if (write(p[1],g_ptr_array_index(uniqStrings,j),NAME_SIZE) == -1) { 
+						perror("Error writing progName to pipe");
+					}
+				}
+				close(p[1]);
+				g_ptr_array_free(uniqStrings,TRUE);
+				_exit(1);
+			}
 		}
-	}
-	g_ptr_array_free(uniqStringsTotal,TRUE);
 
-	close(pipe_d);
+		close(p[1]); // fechar o write do pipe
+
+		GPtrArray * uniqStringsTotal = g_ptr_array_new_with_free_func(free); // array dinâmico para o array final
+
+		char procName[NAME_SIZE]; // buffer para o qual se copia o nome do procs terminados
+
+		//printf("No pai:---\n");
+		while(read(p[0],procName,NAME_SIZE) > 0) { // para cada string recebida de filhos
+			addUniqueProg(procName,uniqStringsTotal);
+		}
+
+		close(p[0]);
+
+		int status;
+		while (wait(&status) != -1)
+			if (!WIFEXITED(status) || WEXITSTATUS(status) < 0)
+				perror("Error executing child process");
+
+		//abrir pipe de volta para o cliente com a resposta
+		end = stpncpy(path, PIPE_FOLDER, PATH_SIZE - 1); // usar só p sprintf e mais nada???
+		sprintf(end, "/%d", info->pid);
+		int pipe_d = open(path, O_WRONLY);
+
+		int occupied = uniqStringsTotal->len;
+		//printf("arrayLen: %d\n", occupied); //debug
+		
+		char resultStr[MESSAGE_SIZE]; // mudar valor de buffer depois?? 
+		int len;
+		for(i=0;i<occupied;i++) {
+			len = snprintf(resultStr, MESSAGE_SIZE, "%s\n", (char *) g_ptr_array_index(uniqStringsTotal, i));
+			if (write(pipe_d,resultStr, sizeof(char)*len) == -1) {
+				perror("Error sending info back to client");
+			}
+		}
+		g_ptr_array_free(uniqStringsTotal,TRUE);
+
+		close(pipe_d);
+		_exit(0);
+	}
 }
 
 //Dada uma string e um GPtrArray de strings, coloca a string no array se ainda n existir
@@ -391,7 +403,7 @@ int splitProgs(char * input, char * progs[PIPELINE_MAX_COMMANDS]) {
 	char * res;
 	int i = 0;
 	//partição dos comandos em cada array
-	printf("string orig: %s\n",input);
+	// printf("string orig: %s\n",input);
 	while (i < PIPELINE_MAX_COMMANDS && (res = strsep(&input, " ")) != NULL) {
 		if (res[0] != '|') {
 			progs[i] = res;
